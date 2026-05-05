@@ -48,7 +48,7 @@ list_parameters(gdx)
 list_variables(gdx)
 list_equations(gdx)
 
-# Access data as DataFrames
+# Access data as Tables.jl-compatible column tables
 demand = gdx[:demand]       # bracket syntax
 demand = gdx.demand         # property syntax (with tab completion)
 
@@ -57,17 +57,21 @@ sym = get_symbol(gdx, :demand)
 sym.name         # "demand"
 sym.description  # explanatory text from GAMS
 sym.domain       # ["j"]
-sym.records      # the DataFrame
+sym.records      # the records table
+
+# Pass DataFrame as a sink to materialize DataFrames while reading
+using DataFrames
+gdx = read_gdx("transport.gdx", DataFrame)
 ```
 
 ### Writing GDX files
 
 ```julia
-using GDXInterface, DataFrames
+using GDXInterface
 
-# Write DataFrames as parameters
-supply = DataFrame(i = ["seattle", "san-diego"], value = [350.0, 600.0])
-demand = DataFrame(j = ["new-york", "chicago", "topeka"], value = [325.0, 300.0, 275.0])
+# Write Tables.jl-compatible tables as parameters
+supply = (; i = ["seattle", "san-diego"], value = [350.0, 600.0])
+demand = (; j = ["new-york", "chicago", "topeka"], value = [325.0, 300.0, 275.0])
 write_gdx("output.gdx", "supply" => supply, "demand" => demand)
 
 # Round-trip: read a GDX file and write it back (preserves all symbol types)
@@ -98,17 +102,18 @@ gdx = read_gdx("big_model.gdx", only=[:x, :demand])
 ### Reading
 
 ```julia
-read_gdx(filepath; parse_integers=true, only=nothing) -> GDXFile
+read_gdx(filepath[, sink]; parse_integers=true, only=nothing) -> GDXFile
 ```
 
+- `sink`: callable that materializes a column table, defaulting to `Tables.columntable`
 - `parse_integers`: convert set elements like `"2020"` to `Int`
 - `only`: vector of symbol names to load (e.g. `[:x, :demand]`)
 
 ### Writing
 
 ```julia
-# Write DataFrames as parameters (convenience)
-write_gdx(filepath, "name" => DataFrame, ...)
+# Write tables as parameters (convenience)
+write_gdx(filepath, "name" => table, ...)
 
 # Write a full GDXFile (sets, parameters, variables, equations)
 write_gdx(filepath, gdxfile::GDXFile)
@@ -117,8 +122,8 @@ write_gdx(filepath, gdxfile::GDXFile)
 ### Querying a GDXFile
 
 ```julia
-gdx[:name]               # records DataFrame (bracket access)
-gdx.name                 # records DataFrame (property access)
+gdx[:name]               # records table (bracket access)
+gdx.name                 # records table (property access)
 get_symbol(gdx, :name)   # full GDXSymbol object
 
 list_sets(gdx)            # list set names
