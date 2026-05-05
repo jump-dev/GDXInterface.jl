@@ -531,6 +531,55 @@ execute_unload "gams_gdx_test.gdx", i, p, x, y;
         @test collect(Tables.getcolumn(gdxfile[:q], :value)) == [3.0, 4.0]
     end
 
+    @testset "Dictionary conversion helpers" begin
+        i = GDXSet("i", "rows", ["*"], (; i = ["a", "b", "c"]))
+        p = GDXParameter("p", "sparse param", ["i"], (; i = ["a", "c"], value = [1.0, 3.0]))
+        gdxfile = GDXFile("", Dict{Symbol,GDXSymbol}(:i => i, :p => p))
+
+        plain = to_dict(gdxfile, :p)
+        @test plain == Dict("a" => 1.0, "c" => 3.0)
+
+        defaulted = to_dict(gdxfile, :p, default=0.0)
+        @test defaulted["a"] == 1.0
+        @test defaulted["b"] == 0.0
+        @test_throws KeyError defaulted["typo"]
+    end
+
+    @testset "Array conversion helpers" begin
+        i = GDXSet("i", "rows", ["*"], (; i = ["a", "b"]))
+        j = GDXSet("j", "cols", ["*"], (; j = ["x", "y", "z"]))
+        p = GDXParameter("p", "sparse param", ["i", "j"], (;
+            i = ["a", "b"],
+            j = ["x", "z"],
+            value = [1.0, 6.0]
+        ))
+        gdxfile = GDXFile("", Dict{Symbol,GDXSymbol}(:i => i, :j => j, :p => p))
+
+        arr = to_array(gdxfile, :p)
+        @test size(arr) == (2, 3)
+        @test arr == [1.0 0.0 0.0; 0.0 0.0 6.0]
+
+        dict = to_dict(gdxfile, :p, default=0.0)
+        @test dict[("a", "y")] == 0.0
+        @test_throws KeyError dict[("a", "typo")]
+    end
+
+    @testset "Variable conversion field selection" begin
+        i = GDXSet("i", "rows", ["*"], (; i = ["a", "b"]))
+        v = GDXVariable("x", "test var", ["i"], VarFree, (;
+            i = ["a", "b"],
+            level = [10.0, 20.0],
+            marginal = [0.1, 0.2],
+            lower = [-Inf, -Inf],
+            upper = [Inf, Inf],
+            scale = [1.0, 1.0]
+        ))
+        gdxfile = GDXFile("", Dict{Symbol,GDXSymbol}(:i => i, :x => v))
+
+        @test to_dict(gdxfile, :x) == Dict("a" => 10.0, "b" => 20.0)
+        @test to_array(gdxfile, :x, field=:marginal) ≈ [0.1, 0.2]
+    end
+
     @testset "DataFrame sink" begin
         gdxfile = read_gdx(test_gdx, DataFrame)
 

@@ -16,5 +16,6 @@ export EquationType, EqE, EqG, EqL, EqN, EqX, EqC, EqB
 export read_gdx, write_gdx
 export list_sets, list_aliases, list_parameters, list_variables, list_equations, list_symbols
 export get_symbol
+export GDXDefaultDict, to_dict, to_array
 
 end # module GDXInterface

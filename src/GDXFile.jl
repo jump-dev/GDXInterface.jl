@@ -210,6 +210,7 @@ end
 Base.getindex(gdx::GDXFile, sym::Symbol) = _get_records(gdx, gdx._symbols[_symkey(sym)])
 Base.getindex(gdx::GDXFile, sym::String) = gdx[Symbol(sym)]
 Base.haskey(gdx::GDXFile, sym::Symbol) = haskey(gdx._symbols, _symkey(sym))
+Base.haskey(gdx::GDXFile, sym::String) = haskey(gdx, Symbol(sym))
 Base.keys(gdx::GDXFile) = Symbol[Symbol(gdx._symbols[k].name) for k in gdx._order]
 Base.length(gdx::GDXFile) = length(gdx._order)
 
@@ -241,6 +242,128 @@ function Base.getproperty(gdx::GDXFile, sym::Symbol)
     key = _symkey(sym)
     haskey(gdx._symbols, key) || error("Symbol :$sym not found in GDX file")
     return _get_records(gdx, gdx._symbols[key])
+end
+
+# =============================================================================
+# Conversion helpers
+# =============================================================================
+
+struct _NoDefault end
+
+"""
+    GDXDefaultDict
+
+A dictionary wrapper that returns a default value for missing records while
+checking lookups against the symbol's loaded domain sets.
+"""
+struct GDXDefaultDict{K,V,A} <: AbstractDict{K,V}
+    data::Dict{K,V}
+    axes::A
+    default::V
+end
+
+Base.length(d::GDXDefaultDict) = length(d.data)
+Base.iterate(d::GDXDefaultDict) = iterate(d.data)
+Base.iterate(d::GDXDefaultDict, state) = iterate(d.data, state)
+Base.keys(d::GDXDefaultDict) = keys(d.data)
+Base.haskey(d::GDXDefaultDict, key) = haskey(d.data, key)
+
+function Base.getindex(d::GDXDefaultDict, key)
+    haskey(d.data, key) && return d.data[key]
+    _check_domain_key(d, key)
+    return d.default
+end
+
+_key_parts(key::Tuple, axes) = length(key) == length(axes) ? key : throw(KeyError(key))
+_key_parts(key, axes) = length(axes) == 1 ? (key,) : throw(KeyError(key))
+
+function _check_domain_key(d::GDXDefaultDict, key)
+    parts = _key_parts(key, d.axes)
+    all(parts[i] in d.axes[i] for i in eachindex(parts)) || throw(KeyError(key))
+end
+
+"""
+    to_dict(gdx::GDXFile, sym; field=nothing, default)
+
+Convert a parameter, variable, or equation to a dictionary. One-dimensional
+symbols use scalar keys; higher-dimensional symbols use tuple keys. If
+`default` is supplied, missing records inside the loaded domains return that
+value and out-of-domain keys throw `KeyError`.
+"""
+function to_dict(gdx::GDXFile, sym; field=nothing, default=_NoDefault())
+    gdxsym = get_symbol(gdx, sym)
+    tbl = Tables.columns(_get_records(gdx, gdxsym))
+    value_field = _value_field(gdxsym, field)
+    dim_cols = _dimension_columns(tbl, value_field, gdxsym)
+    values = Tables.getcolumn(tbl, value_field)
+    data = Dict(_record_key(tbl, dim_cols, i) => values[i] for i in eachindex(values))
+    default isa _NoDefault && return data
+    return _default_dict(data, _domain_axes(gdx, gdxsym), default)
+end
+
+"""
+    to_array(gdx::GDXFile, sym; field=nothing, default=0.0)
+
+Convert a parameter, variable, or equation to a dense array ordered by the
+symbol's loaded domain sets. Sparse records missing from the GDX file are filled
+with `default`.
+"""
+function to_array(gdx::GDXFile, sym; field=nothing, default=0.0)
+    gdxsym = get_symbol(gdx, sym)
+    tbl = Tables.columns(_get_records(gdx, gdxsym))
+    value_field = _value_field(gdxsym, field)
+    dim_cols = _dimension_columns(tbl, value_field, gdxsym)
+    values = Tables.getcolumn(tbl, value_field)
+    axes = _domain_axes(gdx, gdxsym)
+    T = promote_type(eltype(values), typeof(default))
+    arr = fill(convert(T, default), length.(axes)...)
+    lookups = map(axis -> Dict(v => i for (i, v) in pairs(axis)), axes)
+
+    for i in eachindex(values)
+        idx = ntuple(d -> lookups[d][Tables.getcolumn(tbl, dim_cols[d])[i]], length(dim_cols))
+        arr[idx...] = values[i]
+    end
+    return arr
+end
+
+_value_field(::GDXParameter, field::Nothing) = :value
+_value_field(::Union{GDXVariable,GDXEquation}, field::Nothing) = :level
+_value_field(sym::GDXSymbol, field::Nothing) = error("$(typeof(sym)) does not have a default value field")
+_value_field(::GDXSymbol, field) = Symbol(field)
+
+function _dimension_columns(tbl, value_field::Symbol, ::GDXSymbol)
+    col_names = collect(Tables.columnnames(tbl))
+    return filter(!=(value_field), col_names)
+end
+
+function _dimension_columns(tbl, ::Symbol, ::Union{GDXVariable,GDXEquation})
+    col_names = collect(Tables.columnnames(tbl))
+    return filter(c -> !(c in _VAR_EQU_COLS), col_names)
+end
+
+function _record_key(tbl, dim_cols, i)
+    length(dim_cols) == 0 && return ()
+    length(dim_cols) == 1 && return Tables.getcolumn(tbl, only(dim_cols))[i]
+    return Tuple(Tables.getcolumn(tbl, col)[i] for col in dim_cols)
+end
+
+function _default_dict(data::Dict{K,V}, axes, default::D) where {K,V,D}
+    T = promote_type(V, D)
+    return GDXDefaultDict(Dict{K,T}(k => v for (k, v) in data), axes, convert(T, default))
+end
+
+function _domain_axes(gdx::GDXFile, sym::GDXSymbol)
+    return Tuple(_domain_axis(gdx, domain) for domain in sym.domain)
+end
+
+function _domain_axis(gdx::GDXFile, domain::String)
+    domain == "*" && error("Cannot convert wildcard domain '*' to a domain-checked structure")
+    haskey(gdx, domain) || error("Domain set '$domain' is not loaded")
+
+    tbl = Tables.columns(gdx[domain])
+    dim_cols = filter(!=(:element_text), collect(Tables.columnnames(tbl)))
+    length(dim_cols) == 1 || error("Domain set '$domain' must be one-dimensional")
+    return collect(Tables.getcolumn(tbl, only(dim_cols)))
 end
 
 # =============================================================================

@@ -64,6 +64,23 @@ using DataFrames
 gdx = read_gdx("transport.gdx", DataFrame)
 ```
 
+### Converting records to dictionaries and arrays
+
+```julia
+gdx = read_gdx("transport.gdx")
+
+# Dictionary access. Missing sparse records inside loaded domains return the
+# supplied default; out-of-domain keys throw KeyError.
+demand = to_dict(gdx, :demand, default=0.0)
+demand["new-york"]
+
+# Dense arrays are ordered by the loaded domain sets and fill missing records.
+x = to_array(gdx, :x; field=:level)
+```
+
+Conversion helpers require concrete domain sets to be loaded. Wildcard domains
+and missing domain sets are rejected because they cannot be checked safely.
+
 ### Writing GDX files
 
 ```julia
@@ -108,6 +125,17 @@ read_gdx(filepath[, sink]; parse_integers=true, only=nothing) -> GDXFile
 - `sink`: callable that materializes a column table, defaulting to `Tables.columntable`
 - `parse_integers`: convert set elements like `"2020"` to `Int`
 - `only`: vector of symbol names to load (e.g. `[:x, :demand]`)
+
+### Conversion Helpers
+
+```julia
+to_dict(gdx, :name; field=nothing, default) -> Dict or GDXDefaultDict
+to_array(gdx, :name; field=nothing, default=0.0) -> Array
+```
+
+For parameters, the default field is `:value`. For variables and equations, the
+default field is `:level`; pass `field=:marginal`, `:lower`, `:upper`, or
+`:scale` to select another value.
 
 ### Writing
 
