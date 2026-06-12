@@ -1,5 +1,6 @@
 import Test: @testset, @test, @test_throws
-import DataFrames: DataFrame
+import Tables
+import DataFrames: DataFrame, names, metadata!
 using GDXInterface
 
 const TEST_DATA_DIR = joinpath(@__DIR__, "test_data")

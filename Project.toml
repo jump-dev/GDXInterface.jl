@@ -1,19 +1,22 @@
 name = "GDXInterface"
 uuid = "b8352055-3412-4df1-864e-ee7edae71aec"
-version = "0.1.1"
+version = "0.2.0"
 authors = ["Martin Kirk Bonde", "James Daniel Foster"]
 
 [deps]
-DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+DataAPI = "9a962f9c-6df0-11e9-0e5d-c546b8b5ee8a"
+Tables = "bd369af6-aec1-5ad0-b16a-f7cc5008161c"
 gdx_jll = "aa021fa7-5c7d-5dc1-9fa7-c90cd282ac20"
 
 [compat]
-DataFrames = "1"
+DataAPI = "1"
+Tables = "1"
 gdx_jll = "7.11.20"
 julia = "1.6"
 
 [extras]
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test"]
+test = ["Test", "DataFrames"]
