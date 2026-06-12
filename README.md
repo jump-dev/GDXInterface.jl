@@ -1,37 +1,45 @@
 # GDXInterface.jl
 
-High-level Julia interface for reading and writing
-[GDX files](https://gams-dev.github.io/gdx/index.html)
-(GAMS Data Exchange).
+[![Build Status](https://github.com/jd-foster/GDXInterface.jl/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/jd-foster/GDXInterface.jl/actions?query=workflow%3ACI)
+[![codecov](https://codecov.io/gh/jd-foster/GDXInterface.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/jd-foster/GDXInterface.jl)
 
-Uses the [`gdx_jll`](https://github.com/JuliaBinaryWrappers/gdx_jll.jl.git) package to
-provide the GDX C library independently of GAMS.
-
-**No GAMS installation required.**
+[GDXInterface.jl](https://github.com/jd-foster/GDXInterface.jl) is an unofficial
+wrapper for [gams-dev/gdx](http://github.com/gams-dev/gdx), which provides
+support for reading and writing [GDX (GAMS Data Exchange) files](https://gams-dev.github.io/gdx/index.html).
 
 For more information on the GDX file format, see the blog post
-['GDX source code published on GitHub'](https://www.gams.com/blog/2023/12/gdx-source-code-published-on-github/).
+[GDX source code published on GitHub](https://www.gams.com/blog/2023/12/gdx-source-code-published-on-github/).
+
+## Affiliation
+
+This package is an unofficial Julia wrapper of [gams-dev/gdx](https://github.com/gams-dev/gdx).
+It is developed and maintained by the JuMP community. It is not an official
+product by [GAMS](https://gams.com).
+
+## Getting help
+
+If you need help, please ask a question on the [JuMP community forum](https://jump.dev/forum).
+
+If you have a reproducible example of a bug, please [open a GitHub issue](https://github.com/jd-foster/GDXInterface.jl/issues/new).
+
+## License
+
+`GDXInterface.jl` is licensed under the [MIT License](https://github.com/jd-foster/GDXInterface.jl/blob/main/LICENSE.md).
+
+`GDXInterface.jl` wraps the [official GAMS GDX project](https://github.com/GAMS-dev/gdx),
+which is also licensed under the [MIT License](https://github.com/GAMS-dev/gdx/blob/main/LICENSE).
+You do not need a GAMS license to use `GDXInterface.jl`.
 
 ## Installation
 
+Install `GDXInterface.jl` as follows:
+
 ```julia
 using Pkg
-Pkg.add(url="https://github.com/jd-foster/GDXInterface.jl.git")
+Pkg.add(; url = "https://github.com/jd-foster/GDXInterface.jl.git")
 ```
 
-Or in the Pkg REPL:
-
-```
-pkg> add https://github.com/jd-foster/GDXInterface.jl.git
-```
-
-Run tests with:
-
-```
-pkg> test GDXInterface
-```
-
-These instructions will be updated if/when the package is registered.
+You do not need a GAMS installation to use `GDXInterface.jl`.
 
 ## Quick Start
 
@@ -141,13 +149,13 @@ for (k, v) in gdx ...    # iterate over symbols
 
 GAMS special values are mapped to Julia equivalents when reading:
 
-| GAMS | Julia | Notes |
-|------|-------|-------|
-| `UNDEF` | `NaN` | Undefined value |
-| `NA` | `NaN` | Not available |
-| `+INF` | `Inf` | Positive infinity |
-| `-INF` | `-Inf` | Negative infinity |
-| `EPS` | `-0.0` | "Explicitly zero" in sparse data |
+| GAMS    | Julia  | Notes                            |
+| :------ | :----- | :------------------------------- |
+| `UNDEF` | `NaN`  | Undefined value                  |
+| `NA`    | `NaN`  | Not available                    |
+| `+INF`  | `Inf`  | Positive infinity                |
+| `-INF`  | `-Inf` | Negative infinity                |
+| `EPS`   | `-0.0` | "Explicitly zero" in sparse data |
 
 When writing, `NaN` maps to GAMS `NA`, `Inf`/`-Inf` map to `+INF`/`-INF`,
 and `-0.0` maps back to GAMS `EPS`. This preserves EPS semantics through

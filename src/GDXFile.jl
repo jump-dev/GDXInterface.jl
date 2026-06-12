@@ -71,8 +71,15 @@ struct GDXVariable{T} <: GDXSymbol{T}
     records::T
 end
 
-GDXVariable(name::String, desc::String, domain::Vector{String}, vartype::Integer, records) =
-    GDXVariable(name, desc, domain, VariableType(vartype), records)
+function GDXVariable(
+    name::String,
+    desc::String,
+    domain::Vector{String},
+    vartype::Integer,
+    records,
+)
+    return GDXVariable(name, desc, domain, VariableType(vartype), records)
+end
 
 """
     GDXEquation{T}
@@ -87,8 +94,15 @@ struct GDXEquation{T} <: GDXSymbol{T}
     records::T
 end
 
-GDXEquation(name::String, desc::String, domain::Vector{String}, equtype::Integer, records) =
-    GDXEquation(name, desc, domain, EquationType(equtype), records)
+function GDXEquation(
+    name::String,
+    desc::String,
+    domain::Vector{String},
+    equtype::Integer,
+    records,
+)
+    return GDXEquation(name, desc, domain, EquationType(equtype), records)
+end
 
 """
     GDXAlias
@@ -101,13 +115,15 @@ struct GDXAlias <: GDXSymbol{Nothing}
     alias_for::String
 end
 
-Base.show(io::IO, a::GDXAlias) = print(io, "GDXAlias: $(a.name) -> $(a.alias_for)")
+function Base.show(io::IO, a::GDXAlias)
+    return print(io, "GDXAlias: $(a.name) -> $(a.alias_for)")
+end
 
 # =============================================================================
 # Tables.jl interface for GDXSymbol types
 # =============================================================================
 
-const GDXRecordSymbol = Union{GDXSet, GDXParameter, GDXVariable, GDXEquation}
+const GDXRecordSymbol = Union{GDXSet,GDXParameter,GDXVariable,GDXEquation}
 
 Tables.istable(::Type{<:GDXRecordSymbol}) = true
 Tables.columnaccess(::Type{<:GDXRecordSymbol}) = true
@@ -142,12 +158,12 @@ list_parameters(gdx)      # List all parameters
 """
 struct GDXFile
     path::String
-    _symbols::Dict{Symbol, GDXSymbol}
+    _symbols::Dict{Symbol,GDXSymbol}
     _order::Vector{Symbol}
 end
 
-function GDXFile(path::String, symbols::Dict{Symbol, <:GDXSymbol})
-    gdx = GDXFile(path, Dict{Symbol, GDXSymbol}(), Symbol[])
+function GDXFile(path::String, symbols::Dict{Symbol,<:GDXSymbol})
+    gdx = GDXFile(path, Dict{Symbol,GDXSymbol}(), Symbol[])
     for (k, v) in symbols
         _insert!(gdx, k, v)
     end
@@ -155,7 +171,7 @@ function GDXFile(path::String, symbols::Dict{Symbol, <:GDXSymbol})
 end
 
 function GDXFile(path::String)
-    return GDXFile(path, Dict{Symbol, GDXSymbol}(), Symbol[])
+    return GDXFile(path, Dict{Symbol,GDXSymbol}(), Symbol[])
 end
 
 function _insert!(gdx::GDXFile, key::Symbol, sym::GDXSymbol)
@@ -163,7 +179,7 @@ function _insert!(gdx::GDXFile, key::Symbol, sym::GDXSymbol)
     if !haskey(gdx._symbols, lk)
         push!(gdx._order, lk)
     end
-    gdx._symbols[lk] = sym
+    return gdx._symbols[lk] = sym
 end
 
 function Base.show(io::IO, gdx::GDXFile)
@@ -174,19 +190,50 @@ function Base.show(io::IO, gdx::GDXFile)
     vars = list_variables(gdx)
     eqns = list_equations(gdx)
     isempty(sets) || println(io, "  Sets ($(length(sets))): ", join(sets, ", "))
-    isempty(aliases) || println(io, "  Aliases ($(length(aliases))): ", join(aliases, ", "))
-    isempty(params) || println(io, "  Parameters ($(length(params))): ", join(params, ", "))
-    isempty(vars) || println(io, "  Variables ($(length(vars))): ", join(vars, ", "))
-    isempty(eqns) || println(io, "  Equations ($(length(eqns))): ", join(eqns, ", "))
+    isempty(aliases) ||
+        println(io, "  Aliases ($(length(aliases))): ", join(aliases, ", "))
+    isempty(params) ||
+        println(io, "  Parameters ($(length(params))): ", join(params, ", "))
+    isempty(vars) ||
+        println(io, "  Variables ($(length(vars))): ", join(vars, ", "))
+    return isempty(eqns) ||
+           println(io, "  Equations ($(length(eqns))): ", join(eqns, ", "))
 end
 
 # Symbol listing (returns original-case names)
-list_sets(gdx::GDXFile) = Symbol[Symbol(gdx._symbols[k].name) for k in gdx._order if gdx._symbols[k] isa GDXSet]
-list_aliases(gdx::GDXFile) = Symbol[Symbol(gdx._symbols[k].name) for k in gdx._order if gdx._symbols[k] isa GDXAlias]
-list_parameters(gdx::GDXFile) = Symbol[Symbol(gdx._symbols[k].name) for k in gdx._order if gdx._symbols[k] isa GDXParameter]
-list_variables(gdx::GDXFile) = Symbol[Symbol(gdx._symbols[k].name) for k in gdx._order if gdx._symbols[k] isa GDXVariable]
-list_equations(gdx::GDXFile) = Symbol[Symbol(gdx._symbols[k].name) for k in gdx._order if gdx._symbols[k] isa GDXEquation]
-list_symbols(gdx::GDXFile) = Symbol[Symbol(gdx._symbols[k].name) for k in gdx._order]
+function list_sets(gdx::GDXFile)
+    return Symbol[
+        Symbol(gdx._symbols[k].name) for
+        k in gdx._order if gdx._symbols[k] isa GDXSet
+    ]
+end
+function list_aliases(gdx::GDXFile)
+    return Symbol[
+        Symbol(gdx._symbols[k].name) for
+        k in gdx._order if gdx._symbols[k] isa GDXAlias
+    ]
+end
+function list_parameters(gdx::GDXFile)
+    return Symbol[
+        Symbol(gdx._symbols[k].name) for
+        k in gdx._order if gdx._symbols[k] isa GDXParameter
+    ]
+end
+function list_variables(gdx::GDXFile)
+    return Symbol[
+        Symbol(gdx._symbols[k].name) for
+        k in gdx._order if gdx._symbols[k] isa GDXVariable
+    ]
+end
+function list_equations(gdx::GDXFile)
+    return Symbol[
+        Symbol(gdx._symbols[k].name) for
+        k in gdx._order if gdx._symbols[k] isa GDXEquation
+    ]
+end
+function list_symbols(gdx::GDXFile)
+    return Symbol[Symbol(gdx._symbols[k].name) for k in gdx._order]
+end
 
 """
     get_symbol(gdx::GDXFile, sym) -> GDXSymbol
@@ -198,7 +245,11 @@ get_symbol(gdx::GDXFile, sym::Symbol) = gdx._symbols[_symkey(sym)]
 get_symbol(gdx::GDXFile, sym::String) = gdx._symbols[_symkey(sym)]
 
 # Resolve alias chains to get the underlying records
-function _get_records(gdx::GDXFile, sym::GDXSymbol, seen::Set{Symbol}=Set{Symbol}())
+function _get_records(
+    gdx::GDXFile,
+    sym::GDXSymbol,
+    seen::Set{Symbol} = Set{Symbol}(),
+)
     sym isa GDXAlias || return sym.records
     key = _symkey(sym.alias_for)
     key in seen && error("Cyclic alias chain detected involving '$(sym.name)'")
@@ -207,15 +258,23 @@ function _get_records(gdx::GDXFile, sym::GDXSymbol, seen::Set{Symbol}=Set{Symbol
 end
 
 # Dictionary-like access (returns records, resolving aliases)
-Base.getindex(gdx::GDXFile, sym::Symbol) = _get_records(gdx, gdx._symbols[_symkey(sym)])
+function Base.getindex(gdx::GDXFile, sym::Symbol)
+    return _get_records(gdx, gdx._symbols[_symkey(sym)])
+end
 Base.getindex(gdx::GDXFile, sym::String) = gdx[Symbol(sym)]
 Base.haskey(gdx::GDXFile, sym::Symbol) = haskey(gdx._symbols, _symkey(sym))
-Base.keys(gdx::GDXFile) = Symbol[Symbol(gdx._symbols[k].name) for k in gdx._order]
+function Base.keys(gdx::GDXFile)
+    return Symbol[Symbol(gdx._symbols[k].name) for k in gdx._order]
+end
 Base.length(gdx::GDXFile) = length(gdx._order)
 
 # Dictionary-like setting (inserts or updates symbols)
-Base.setindex!(gdx::GDXFile, sym::GDXSymbol, key::Symbol) = _insert!(gdx, key, sym)
-Base.setindex!(gdx::GDXFile, sym::GDXSymbol, key::String) = _insert!(gdx, Symbol(key), sym)
+function Base.setindex!(gdx::GDXFile, sym::GDXSymbol, key::Symbol)
+    return _insert!(gdx, key, sym)
+end
+function Base.setindex!(gdx::GDXFile, sym::GDXSymbol, key::String)
+    return _insert!(gdx, Symbol(key), sym)
+end
 
 function Base.iterate(gdx::GDXFile)
     isempty(gdx._order) && return nothing
@@ -232,8 +291,11 @@ function Base.iterate(gdx::GDXFile, state::Int)
 end
 
 # Property access for tab completion
-function Base.propertynames(gdx::GDXFile, private::Bool=false)
-    (fieldnames(GDXFile)..., (Symbol(gdx._symbols[k].name) for k in gdx._order)...)
+function Base.propertynames(gdx::GDXFile, private::Bool = false)
+    return (
+        fieldnames(GDXFile)...,
+        (Symbol(gdx._symbols[k].name) for k in gdx._order)...,
+    )
 end
 
 function Base.getproperty(gdx::GDXFile, sym::Symbol)
@@ -277,14 +339,19 @@ demand = gdx[:demand]  # Get parameter as DataFrame
 gdx = read_gdx("big_model.gdx", only=[:x, :demand])
 ```
 """
-function read_gdx(filepath::String, sink=Tables.columntable; parse_integers::Bool=true, only=nothing)
+function read_gdx(
+    filepath::String,
+    sink = Tables.columntable;
+    parse_integers::Bool = true,
+    only = nothing,
+)
     gdx = GDXHandle()
     gdx_create(gdx)
     only_filter = only === nothing ? nothing : Set{Symbol}(_symkey.(only))
 
     try
         gdx_open_read(gdx, filepath)
-        gdxfile = GDXFile(filepath, Dict{Symbol, GDXSymbol}(), Symbol[])
+        gdxfile = GDXFile(filepath, Dict{Symbol,GDXSymbol}(), Symbol[])
 
         n_syms, n_uels = gdx_system_info(gdx)
 
@@ -296,19 +363,75 @@ function read_gdx(filepath::String, sink=Tables.columntable; parse_integers::Boo
                 continue
             end
 
-            sym_count, sym_user_info, sym_description = gdx_symbol_info_x(gdx, sym_nr)
+            sym_count, sym_user_info, sym_description =
+                gdx_symbol_info_x(gdx, sym_nr)
 
             if sym_type == GMS_DT_SET
-                _insert!(gdxfile, sym_key, _read_set(gdx, sym_nr, sym_name, sym_dim, sym_description, sink))
+                _insert!(
+                    gdxfile,
+                    sym_key,
+                    _read_set(
+                        gdx,
+                        sym_nr,
+                        sym_name,
+                        sym_dim,
+                        sym_description,
+                        sink,
+                    ),
+                )
             elseif sym_type == GMS_DT_PAR
-                _insert!(gdxfile, sym_key, _read_parameter(gdx, sym_nr, sym_name, sym_dim, sym_description, parse_integers, sink))
+                _insert!(
+                    gdxfile,
+                    sym_key,
+                    _read_parameter(
+                        gdx,
+                        sym_nr,
+                        sym_name,
+                        sym_dim,
+                        sym_description,
+                        parse_integers,
+                        sink,
+                    ),
+                )
             elseif sym_type == GMS_DT_VAR
-                _insert!(gdxfile, sym_key, _read_variable(gdx, sym_nr, sym_name, sym_dim, sym_description, sym_user_info, parse_integers, sink))
+                _insert!(
+                    gdxfile,
+                    sym_key,
+                    _read_variable(
+                        gdx,
+                        sym_nr,
+                        sym_name,
+                        sym_dim,
+                        sym_description,
+                        sym_user_info,
+                        parse_integers,
+                        sink,
+                    ),
+                )
             elseif sym_type == GMS_DT_EQU
-                _insert!(gdxfile, sym_key, _read_equation(gdx, sym_nr, sym_name, sym_dim, sym_description, sym_user_info, parse_integers, sink))
+                _insert!(
+                    gdxfile,
+                    sym_key,
+                    _read_equation(
+                        gdx,
+                        sym_nr,
+                        sym_name,
+                        sym_dim,
+                        sym_description,
+                        sym_user_info,
+                        parse_integers,
+                        sink,
+                    ),
+                )
             elseif sym_type == GMS_DT_ALIAS
-                aliased_name = sym_user_info > 0 ? gdx_symbol_info(gdx, sym_user_info)[1] : "*"
-                _insert!(gdxfile, sym_key, GDXAlias(sym_name, sym_description, aliased_name))
+                aliased_name =
+                    sym_user_info > 0 ? gdx_symbol_info(gdx, sym_user_info)[1] :
+                    "*"
+                _insert!(
+                    gdxfile,
+                    sym_key,
+                    GDXAlias(sym_name, sym_description, aliased_name),
+                )
             end
         end
 
@@ -319,7 +442,14 @@ function read_gdx(filepath::String, sink=Tables.columntable; parse_integers::Boo
     end
 end
 
-function _read_set(gdx::GDXHandle, sym_nr::Int, name::String, dim::Int, description::String, sink)
+function _read_set(
+    gdx::GDXHandle,
+    sym_nr::Int,
+    name::String,
+    dim::Int,
+    description::String,
+    sink,
+)
     domains = dim > 0 ? gdx_symbol_get_domain_x(gdx, sym_nr, dim) : String[]
 
     n_recs = gdx_data_read_str_start(gdx, sym_nr)
@@ -338,7 +468,10 @@ function _read_set(gdx::GDXHandle, sym_nr::Int, name::String, dim::Int, descript
     end
     gdx_data_read_done(gdx)
 
-    col_names = Symbol[Symbol(domain == "*" ? "dim$d" : domain) for (d, domain) in enumerate(domains)]
+    col_names = Symbol[
+        Symbol(domain == "*" ? "dim$d" : domain) for
+        (d, domain) in enumerate(domains)
+    ]
 
     has_text = any(>(0), text_nrs)
     if has_text
@@ -351,7 +484,10 @@ function _read_set(gdx::GDXHandle, sym_nr::Int, name::String, dim::Int, descript
                 element_text[i] = ""
             end
         end
-        nt = NamedTuple{(col_names..., :element_text)}((columns..., element_text))
+        nt = NamedTuple{(col_names..., :element_text)}((
+            columns...,
+            element_text,
+        ))
     else
         nt = NamedTuple{Tuple(col_names)}(Tuple(columns))
     end
@@ -359,7 +495,15 @@ function _read_set(gdx::GDXHandle, sym_nr::Int, name::String, dim::Int, descript
     return GDXSet(name, description, domains, sink(nt))
 end
 
-function _read_parameter(gdx::GDXHandle, sym_nr::Int, name::String, dim::Int, description::String, parse_integers::Bool, sink)
+function _read_parameter(
+    gdx::GDXHandle,
+    sym_nr::Int,
+    name::String,
+    dim::Int,
+    description::String,
+    parse_integers::Bool,
+    sink,
+)
     domains = dim > 0 ? gdx_symbol_get_domain_x(gdx, sym_nr, dim) : String[]
 
     n_recs = gdx_data_read_str_start(gdx, sym_nr)
@@ -378,14 +522,26 @@ function _read_parameter(gdx::GDXHandle, sym_nr::Int, name::String, dim::Int, de
     end
     gdx_data_read_done(gdx)
 
-    col_names = Symbol[Symbol(domain == "*" ? "dim$d" : domain) for (d, domain) in enumerate(domains)]
+    col_names = Symbol[
+        Symbol(domain == "*" ? "dim$d" : domain) for
+        (d, domain) in enumerate(domains)
+    ]
     col_data = Any[parse_integers ? _try_parse_integers(c) : c for c in columns]
 
     nt = NamedTuple{(col_names..., :value)}((col_data..., values))
     return GDXParameter(name, description, domains, sink(nt))
 end
 
-function _read_variable(gdx::GDXHandle, sym_nr::Int, name::String, dim::Int, description::String, user_info::Int, parse_integers::Bool, sink)
+function _read_variable(
+    gdx::GDXHandle,
+    sym_nr::Int,
+    name::String,
+    dim::Int,
+    description::String,
+    user_info::Int,
+    parse_integers::Bool,
+    sink,
+)
     domains = dim > 0 ? gdx_symbol_get_domain_x(gdx, sym_nr, dim) : String[]
 
     n_recs = gdx_data_read_str_start(gdx, sym_nr)
@@ -412,14 +568,39 @@ function _read_variable(gdx::GDXHandle, sym_nr::Int, name::String, dim::Int, des
     end
     gdx_data_read_done(gdx)
 
-    col_names = Symbol[Symbol(domain == "*" ? "dim$d" : domain) for (d, domain) in enumerate(domains)]
+    col_names = Symbol[
+        Symbol(domain == "*" ? "dim$d" : domain) for
+        (d, domain) in enumerate(domains)
+    ]
     col_data = Any[parse_integers ? _try_parse_integers(c) : c for c in columns]
 
-    nt = NamedTuple{(col_names..., :level, :marginal, :lower, :upper, :scale)}((col_data..., level, marginal, lower, upper, scale))
-    return GDXVariable(name, description, domains, VariableType(user_info), sink(nt))
+    nt = NamedTuple{(col_names..., :level, :marginal, :lower, :upper, :scale)}((
+        col_data...,
+        level,
+        marginal,
+        lower,
+        upper,
+        scale,
+    ))
+    return GDXVariable(
+        name,
+        description,
+        domains,
+        VariableType(user_info),
+        sink(nt),
+    )
 end
 
-function _read_equation(gdx::GDXHandle, sym_nr::Int, name::String, dim::Int, description::String, user_info::Int, parse_integers::Bool, sink)
+function _read_equation(
+    gdx::GDXHandle,
+    sym_nr::Int,
+    name::String,
+    dim::Int,
+    description::String,
+    user_info::Int,
+    parse_integers::Bool,
+    sink,
+)
     domains = dim > 0 ? gdx_symbol_get_domain_x(gdx, sym_nr, dim) : String[]
 
     n_recs = gdx_data_read_str_start(gdx, sym_nr)
@@ -446,11 +627,27 @@ function _read_equation(gdx::GDXHandle, sym_nr::Int, name::String, dim::Int, des
     end
     gdx_data_read_done(gdx)
 
-    col_names = Symbol[Symbol(domain == "*" ? "dim$d" : domain) for (d, domain) in enumerate(domains)]
+    col_names = Symbol[
+        Symbol(domain == "*" ? "dim$d" : domain) for
+        (d, domain) in enumerate(domains)
+    ]
     col_data = Any[parse_integers ? _try_parse_integers(c) : c for c in columns]
 
-    nt = NamedTuple{(col_names..., :level, :marginal, :lower, :upper, :scale)}((col_data..., level, marginal, lower, upper, scale))
-    return GDXEquation(name, description, domains, EquationType(user_info), sink(nt))
+    nt = NamedTuple{(col_names..., :level, :marginal, :lower, :upper, :scale)}((
+        col_data...,
+        level,
+        marginal,
+        lower,
+        upper,
+        scale,
+    ))
+    return GDXEquation(
+        name,
+        description,
+        domains,
+        EquationType(user_info),
+        sink(nt),
+    )
 end
 
 # =============================================================================
@@ -469,7 +666,11 @@ gdx = read_gdx("input.gdx")
 write_gdx("output.gdx", gdx)
 ```
 """
-function write_gdx(filepath::String, gdxfile::GDXFile; producer::String="GDXInterface.jl")
+function write_gdx(
+    filepath::String,
+    gdxfile::GDXFile;
+    producer::String = "GDXInterface.jl",
+)
     gdx = GDXHandle()
     gdx_create(gdx)
 
@@ -513,7 +714,11 @@ nt = (; i=["a", "b", "c"], value=[1.0, 2.0, 3.0])
 write_gdx("output.gdx", "demand" => nt)
 ```
 """
-function write_gdx(filepath::String, symbols::Pair{String}...; producer::String="GDXInterface.jl")
+function write_gdx(
+    filepath::String,
+    symbols::Pair{String}...;
+    producer::String = "GDXInterface.jl",
+)
     gdx = GDXHandle()
     gdx_create(gdx)
 
@@ -531,10 +736,15 @@ function write_gdx(filepath::String, symbols::Pair{String}...; producer::String=
     return filepath
 end
 
-function _set_domain_x(gdx::GDXHandle, name::String, domain::Vector{String}, dim::Int)
+function _set_domain_x(
+    gdx::GDXHandle,
+    name::String,
+    domain::Vector{String},
+    dim::Int,
+)
     length(domain) == dim && dim > 0 || return
     found, sym_nr = gdx_find_symbol(gdx, name)
-    found && gdx_symbol_set_domain_x(gdx, sym_nr, domain)
+    return found && gdx_symbol_set_domain_x(gdx, sym_nr, domain)
 end
 
 function _table_description(tbl)
@@ -552,7 +762,8 @@ function _write_set(gdx::GDXHandle, sym::GDXSet)
     tbl = Tables.columns(sym.records)
     col_names = collect(Tables.columnnames(tbl))
     has_text = :element_text in col_names
-    dim_cols = has_text ? filter(!=(Symbol("element_text")), col_names) : col_names
+    dim_cols =
+        has_text ? filter(!=(Symbol("element_text")), col_names) : col_names
     dim = length(dim_cols)
 
     gdx_data_write_str_start(gdx, sym.name, sym.description, dim, GMS_DT_SET)
@@ -567,20 +778,33 @@ function _write_set(gdx::GDXHandle, sym::GDXSet)
         end
         if has_text
             text = string(Tables.getcolumn(tbl, :element_text)[i])
-            vals[GAMS_VALUE_LEVEL] = isempty(text) ? 0.0 : Float64(gdx_add_set_text(gdx, text))
+            vals[GAMS_VALUE_LEVEL] =
+                isempty(text) ? 0.0 : Float64(gdx_add_set_text(gdx, text))
         end
         gdx_data_write_str(gdx, keys, vals)
     end
 
     gdx_data_write_done(gdx)
-    _set_domain_x(gdx, sym.name, sym.domain, dim)
+    return _set_domain_x(gdx, sym.name, sym.domain, dim)
 end
 
 function _write_parameter(gdx::GDXHandle, sym::GDXParameter)
-    _write_parameter_table(gdx, sym.name, sym.records, sym.description, sym.domain)
+    return _write_parameter_table(
+        gdx,
+        sym.name,
+        sym.records,
+        sym.description,
+        sym.domain,
+    )
 end
 
-function _write_parameter_table(gdx::GDXHandle, name::String, tbl, description::String="", domain::Vector{String}=String[])
+function _write_parameter_table(
+    gdx::GDXHandle,
+    name::String,
+    tbl,
+    description::String = "",
+    domain::Vector{String} = String[],
+)
     cols = Tables.columns(tbl)
     col_names = collect(Tables.columnnames(cols))
     dim_cols = filter(!=(:value), col_names)
@@ -601,7 +825,7 @@ function _write_parameter_table(gdx::GDXHandle, name::String, tbl, description::
     end
 
     gdx_data_write_done(gdx)
-    _set_domain_x(gdx, name, domain, dim)
+    return _set_domain_x(gdx, name, domain, dim)
 end
 
 const _VAR_EQU_COLS = Set([:level, :marginal, :lower, :upper, :scale])
@@ -612,7 +836,14 @@ function _write_variable(gdx::GDXHandle, sym::GDXVariable)
     dim_cols = filter(c -> !(c in _VAR_EQU_COLS), col_names)
     dim = length(dim_cols)
 
-    gdx_data_write_str_start(gdx, sym.name, sym.description, dim, GMS_DT_VAR, Int(sym.vartype))
+    gdx_data_write_str_start(
+        gdx,
+        sym.name,
+        sym.description,
+        dim,
+        GMS_DT_VAR,
+        Int(sym.vartype),
+    )
 
     keys = Vector{String}(undef, dim)
     vals = zeros(Float64, GMS_VAL_MAX)
@@ -636,7 +867,7 @@ function _write_variable(gdx::GDXHandle, sym::GDXVariable)
     end
 
     gdx_data_write_done(gdx)
-    _set_domain_x(gdx, sym.name, sym.domain, dim)
+    return _set_domain_x(gdx, sym.name, sym.domain, dim)
 end
 
 function _write_equation(gdx::GDXHandle, sym::GDXEquation)
@@ -645,7 +876,14 @@ function _write_equation(gdx::GDXHandle, sym::GDXEquation)
     dim_cols = filter(c -> !(c in _VAR_EQU_COLS), col_names)
     dim = length(dim_cols)
 
-    gdx_data_write_str_start(gdx, sym.name, sym.description, dim, GMS_DT_EQU, Int(sym.equtype))
+    gdx_data_write_str_start(
+        gdx,
+        sym.name,
+        sym.description,
+        dim,
+        GMS_DT_EQU,
+        Int(sym.equtype),
+    )
 
     keys = Vector{String}(undef, dim)
     vals = zeros(Float64, GMS_VAL_MAX)
@@ -669,7 +907,7 @@ function _write_equation(gdx::GDXHandle, sym::GDXEquation)
     end
 
     gdx_data_write_done(gdx)
-    _set_domain_x(gdx, sym.name, sym.domain, dim)
+    return _set_domain_x(gdx, sym.name, sym.domain, dim)
 end
 
 # =============================================================================

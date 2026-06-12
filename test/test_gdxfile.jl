@@ -53,7 +53,10 @@ execute_unload "gams_gdx_test.gdx", i, p, x, y;
 
     @testset "Write and read round-trip" begin
         supply = (; i = ["seattle", "san-diego"], value = [350.0, 600.0])
-        demand = (; j = ["new-york", "chicago", "topeka"], value = [325.0, 300.0, 275.0])
+        demand = (;
+            j = ["new-york", "chicago", "topeka"],
+            value = [325.0, 300.0, 275.0],
+        )
 
         outfile = joinpath(tempdir(), "gdx_jl_write_test.gdx")
         write_gdx(outfile, "supply" => supply, "demand" => demand)
@@ -62,20 +65,22 @@ execute_unload "gams_gdx_test.gdx", i, p, x, y;
 
         @test :supply in list_parameters(gdxfile)
         @test :demand in list_parameters(gdxfile)
-        @test collect(Tables.getcolumn(gdxfile[:supply], :value)) == [350.0, 600.0]
-        @test collect(Tables.getcolumn(gdxfile[:demand], :value)) == [325.0, 300.0, 275.0]
+        @test collect(Tables.getcolumn(gdxfile[:supply], :value)) ==
+              [350.0, 600.0]
+        @test collect(Tables.getcolumn(gdxfile[:demand], :value)) ==
+              [325.0, 300.0, 275.0]
 
         @test gdxfile.supply == gdxfile[:supply]
         @test gdxfile.demand == gdxfile[:demand]
 
-        rm(outfile, force=true)
+        rm(outfile, force = true)
     end
 
     @testset "Multi-dimensional parameters" begin
         cost = (;
             i = ["seattle", "seattle", "san-diego", "san-diego"],
             j = ["new-york", "chicago", "new-york", "chicago"],
-            value = [2.5, 1.7, 2.5, 1.8]
+            value = [2.5, 1.7, 2.5, 1.8],
         )
 
         outfile = joinpath(tempdir(), "gdx_jl_2d_test.gdx")
@@ -89,7 +94,7 @@ execute_unload "gams_gdx_test.gdx", i, p, x, y;
         @test length(col_names) == 3
         @test :value in col_names
 
-        rm(outfile, force=true)
+        rm(outfile, force = true)
     end
 
     @testset "Integer parsing" begin
@@ -98,13 +103,13 @@ execute_unload "gams_gdx_test.gdx", i, p, x, y;
         outfile = joinpath(tempdir(), "gdx_jl_int_test.gdx")
         write_gdx(outfile, "data" => df)
 
-        gdxfile = read_gdx(outfile, parse_integers=true)
+        gdxfile = read_gdx(outfile, parse_integers = true)
         @test eltype(Tables.getcolumn(gdxfile[:data], :dim1)) == Int
 
-        gdxfile = read_gdx(outfile, parse_integers=false)
+        gdxfile = read_gdx(outfile, parse_integers = false)
         @test eltype(Tables.getcolumn(gdxfile[:data], :dim1)) == String
 
-        rm(outfile, force=true)
+        rm(outfile, force = true)
     end
 
     @testset "GDXFile show and propertynames" begin
@@ -123,7 +128,7 @@ execute_unload "gams_gdx_test.gdx", i, p, x, y;
         props = propertynames(gdxfile)
         @test :param in props
 
-        rm(outfile, force=true)
+        rm(outfile, force = true)
     end
 
     @testset "Symbol listing" begin
@@ -143,7 +148,7 @@ execute_unload "gams_gdx_test.gdx", i, p, x, y;
         syms = list_symbols(gdxfile)
         @test length(syms) == 2
 
-        rm(outfile, force=true)
+        rm(outfile, force = true)
     end
 
     @testset "GDXFile full round-trip (sets, params, variables)" begin
@@ -155,22 +160,34 @@ execute_unload "gams_gdx_test.gdx", i, p, x, y;
 
         @test sort(list_symbols(gdx1)) == sort(list_symbols(gdx2))
 
-        @test collect(Tables.getcolumn(gdx1[:p], :value)) == collect(Tables.getcolumn(gdx2[:p], :value))
+        @test collect(Tables.getcolumn(gdx1[:p], :value)) ==
+              collect(Tables.getcolumn(gdx2[:p], :value))
 
-        @test collect(Tables.getcolumn(gdx1[:x], :level)) == collect(Tables.getcolumn(gdx2[:x], :level))
-        @test collect(Tables.getcolumn(gdx1[:x], :marginal)) ≈ collect(Tables.getcolumn(gdx2[:x], :marginal))
-        @test collect(Tables.getcolumn(gdx1[:y], :level)) == collect(Tables.getcolumn(gdx2[:y], :level))
-        @test collect(Tables.getcolumn(gdx1[:y], :upper)) == collect(Tables.getcolumn(gdx2[:y], :upper))
+        @test collect(Tables.getcolumn(gdx1[:x], :level)) ==
+              collect(Tables.getcolumn(gdx2[:x], :level))
+        @test collect(Tables.getcolumn(gdx1[:x], :marginal)) ≈
+              collect(Tables.getcolumn(gdx2[:x], :marginal))
+        @test collect(Tables.getcolumn(gdx1[:y], :level)) ==
+              collect(Tables.getcolumn(gdx2[:y], :level))
+        @test collect(Tables.getcolumn(gdx1[:y], :upper)) ==
+              collect(Tables.getcolumn(gdx2[:y], :upper))
 
-        i1_col = collect(Tables.getcolumn(gdx1[:i], first(Tables.columnnames(gdx1[:i]))))
-        i2_col = collect(Tables.getcolumn(gdx2[:i], first(Tables.columnnames(gdx2[:i]))))
+        i1_col = collect(
+            Tables.getcolumn(gdx1[:i], first(Tables.columnnames(gdx1[:i]))),
+        )
+        i2_col = collect(
+            Tables.getcolumn(gdx2[:i], first(Tables.columnnames(gdx2[:i]))),
+        )
         @test sort(i1_col) == sort(i2_col)
 
-        rm(outfile, force=true)
+        rm(outfile, force = true)
     end
 
     @testset "Special values round-trip" begin
-        tbl = (; i = ["a", "b", "c", "d", "e"], value = [NaN, Inf, -Inf, 42.0, -0.0])
+        tbl = (;
+            i = ["a", "b", "c", "d", "e"],
+            value = [NaN, Inf, -Inf, 42.0, -0.0],
+        )
         outfile = joinpath(tempdir(), "gdx_jl_special.gdx")
         write_gdx(outfile, "special" => tbl)
 
@@ -182,7 +199,7 @@ execute_unload "gams_gdx_test.gdx", i, p, x, y;
         @test result[4] == 42.0
         @test result[5] === -0.0
 
-        rm(outfile, force=true)
+        rm(outfile, force = true)
     end
 
     @testset "Scalar (0-dim) parameters" begin
@@ -192,24 +209,26 @@ execute_unload "gams_gdx_test.gdx", i, p, x, y;
 
         gdxfile = read_gdx(outfile)
         @test :scalar_param in list_parameters(gdxfile)
-        @test collect(Tables.getcolumn(gdxfile[:scalar_param], :value)) == [42.0]
+        @test collect(Tables.getcolumn(gdxfile[:scalar_param], :value)) ==
+              [42.0]
         @test length(collect(Tables.columnnames(gdxfile[:scalar_param]))) == 1
 
-        rm(outfile, force=true)
+        rm(outfile, force = true)
     end
 
     @testset "Selective reading (only keyword)" begin
         gdx_full = read_gdx(test_gdx)
-        gdx_partial = read_gdx(test_gdx, only=[:p, :x])
+        gdx_partial = read_gdx(test_gdx, only = [:p, :x])
 
         @test length(gdx_partial) == 2
         @test :p in list_parameters(gdx_partial)
         @test :x in list_variables(gdx_partial)
         @test !haskey(gdx_partial, :i)
         @test !haskey(gdx_partial, :y)
-        @test collect(Tables.getcolumn(gdx_partial[:p], :value)) == collect(Tables.getcolumn(gdx_full[:p], :value))
+        @test collect(Tables.getcolumn(gdx_partial[:p], :value)) ==
+              collect(Tables.getcolumn(gdx_full[:p], :value))
 
-        gdx_str = read_gdx(test_gdx, only=["i"])
+        gdx_str = read_gdx(test_gdx, only = ["i"])
         @test length(gdx_str) == 1
         @test :i in list_sets(gdx_str)
     end
@@ -253,7 +272,7 @@ execute_unload "gams_gdx_test.gdx", i, p, x, y;
             marginal = [0.5, 0.6],
             lower = [-Inf, -Inf],
             upper = [Inf, Inf],
-            scale = [1.0, 1.0]
+            scale = [1.0, 1.0],
         )
         eq = GDXEquation("myeq", "test equation", ["i"], 0, eq_tbl)
         gdxfile = GDXFile("", Dict{Symbol,GDXSymbol}(:myeq => eq))
@@ -266,7 +285,7 @@ execute_unload "gams_gdx_test.gdx", i, p, x, y;
         @test collect(Tables.getcolumn(gdx2[:myeq], :level)) == [1.0, 2.0]
         @test collect(Tables.getcolumn(gdx2[:myeq], :marginal)) == [0.5, 0.6]
 
-        rm(outfile, force=true)
+        rm(outfile, force = true)
     end
 
     @testset "Writing sets standalone" begin
@@ -279,10 +298,15 @@ execute_unload "gams_gdx_test.gdx", i, p, x, y;
 
         gdx2 = read_gdx(outfile)
         @test :myset in list_sets(gdx2)
-        col = collect(Tables.getcolumn(gdx2[:myset], first(Tables.columnnames(gdx2[:myset]))))
+        col = collect(
+            Tables.getcolumn(
+                gdx2[:myset],
+                first(Tables.columnnames(gdx2[:myset])),
+            ),
+        )
         @test sort(col) == ["x", "y", "z"]
 
-        rm(outfile, force=true)
+        rm(outfile, force = true)
     end
 
     @testset "Variable/Equation type enums" begin
@@ -295,10 +319,34 @@ execute_unload "gams_gdx_test.gdx", i, p, x, y;
         sym_y = get_symbol(gdxfile, :y)
         @test sym_y.vartype == VarPositive
 
-        v = GDXVariable("test", "", String[], 3, (; level=[0.0], marginal=[0.0], lower=[0.0], upper=[0.0], scale=[1.0]))
+        v = GDXVariable(
+            "test",
+            "",
+            String[],
+            3,
+            (;
+                level = [0.0],
+                marginal = [0.0],
+                lower = [0.0],
+                upper = [0.0],
+                scale = [1.0],
+            ),
+        )
         @test v.vartype == VarPositive
 
-        e = GDXEquation("test", "", String[], 0, (; level=[0.0], marginal=[0.0], lower=[0.0], upper=[0.0], scale=[1.0]))
+        e = GDXEquation(
+            "test",
+            "",
+            String[],
+            0,
+            (;
+                level = [0.0],
+                marginal = [0.0],
+                lower = [0.0],
+                upper = [0.0],
+                scale = [1.0],
+            ),
+        )
         @test e.equtype == EqE
     end
 
@@ -316,7 +364,7 @@ execute_unload "gams_gdx_test.gdx", i, p, x, y;
         sym = get_symbol(gdxfile, :p)
         @test sym.name == "p"
 
-        gdx2 = read_gdx(test_gdx, only=[:P, :X])
+        gdx2 = read_gdx(test_gdx, only = [:P, :X])
         @test length(gdx2) == 2
         @test :p in list_parameters(gdx2)
         @test :x in list_variables(gdx2)
@@ -334,13 +382,13 @@ execute_unload "gams_gdx_test.gdx", i, p, x, y;
         gdx2 = read_gdx(outfile)
         @test list_symbols(gdx2) == syms
 
-        rm(outfile, force=true)
+        rm(outfile, force = true)
     end
 
     @testset "Set element text round-trip" begin
         set_tbl = (;
             dim1 = ["seattle", "san-diego", "topeka"],
-            element_text = ["rainy city", "sunny city", ""]
+            element_text = ["rainy city", "sunny city", ""],
         )
         s = GDXSet("cities", "transport cities", ["*"], set_tbl)
         gdxfile = GDXFile("", Dict{Symbol,GDXSymbol}(:cities => s))
@@ -356,7 +404,7 @@ execute_unload "gams_gdx_test.gdx", i, p, x, y;
         @test et[2] == "sunny city"
         @test et[3] == ""
 
-        rm(outfile, force=true)
+        rm(outfile, force = true)
     end
 
     @testset "Set without element text has no extra column" begin
@@ -370,7 +418,7 @@ execute_unload "gams_gdx_test.gdx", i, p, x, y;
         gdx2 = read_gdx(outfile)
         @test !(:element_text in Tables.columnnames(gdx2[:simple]))
 
-        rm(outfile, force=true)
+        rm(outfile, force = true)
     end
 
     @testset "Alias round-trip" begin
@@ -392,7 +440,7 @@ execute_unload "gams_gdx_test.gdx", i, p, x, y;
 
         @test gdx2[:j] == gdx2[:i]
 
-        rm(outfile, force=true)
+        rm(outfile, force = true)
     end
 
     @testset "GDXAlias show" begin
@@ -417,7 +465,7 @@ execute_unload "gams_gdx_test.gdx", i, p, x, y;
         @test x2.domain == ["i"]
         @test first(Tables.columnnames(gdx2[:x])) == :i
 
-        rm(outfile, force=true)
+        rm(outfile, force = true)
     end
 
     @testset "Domain preservation for variables (issue #3)" begin
@@ -429,7 +477,7 @@ execute_unload "gams_gdx_test.gdx", i, p, x, y;
             marginal = [0.0, 0.0, 0.0],
             lower = [-Inf, -Inf, -Inf],
             upper = [Inf, Inf, Inf],
-            scale = [1.0, 1.0, 1.0]
+            scale = [1.0, 1.0, 1.0],
         )
         v = GDXVariable("y", "A variable over i", ["i"], VarFree, var_tbl)
         gdxfile = GDXFile("", Dict{Symbol,GDXSymbol}(:i => s, :y => v))
@@ -442,7 +490,7 @@ execute_unload "gams_gdx_test.gdx", i, p, x, y;
         @test y2.domain == ["i"]
         @test first(Tables.columnnames(gdx2[:y])) == :i
 
-        rm(outfile, force=true)
+        rm(outfile, force = true)
     end
 
     @testset "Domain preservation for equations (issue #3)" begin
@@ -454,7 +502,7 @@ execute_unload "gams_gdx_test.gdx", i, p, x, y;
             marginal = [0.5, 0.6],
             lower = [-Inf, -Inf],
             upper = [Inf, Inf],
-            scale = [1.0, 1.0]
+            scale = [1.0, 1.0],
         )
         eq = GDXEquation("myeq", "test eq", ["i"], EqE, eq_tbl)
         gdxfile = GDXFile("", Dict{Symbol,GDXSymbol}(:i => s, :myeq => eq))
@@ -467,7 +515,7 @@ execute_unload "gams_gdx_test.gdx", i, p, x, y;
         @test eq2.domain == ["i"]
         @test first(Tables.columnnames(gdx2[:myeq])) == :i
 
-        rm(outfile, force=true)
+        rm(outfile, force = true)
     end
 
     @testset "Multi-dimensional domain preservation (issue #3)" begin
@@ -476,10 +524,11 @@ execute_unload "gams_gdx_test.gdx", i, p, x, y;
         par_tbl = (;
             i = ["a", "a", "b", "b"],
             j = ["x", "y", "x", "y"],
-            value = [1.0, 2.0, 3.0, 4.0]
+            value = [1.0, 2.0, 3.0, 4.0],
         )
         p = GDXParameter("cost", "transport cost", ["i", "j"], par_tbl)
-        gdxfile = GDXFile("", Dict{Symbol,GDXSymbol}(:i => si, :j => sj, :cost => p))
+        gdxfile =
+            GDXFile("", Dict{Symbol,GDXSymbol}(:i => si, :j => sj, :cost => p))
 
         outfile = joinpath(tempdir(), "gdx_jl_domain_2d_test.gdx")
         write_gdx(outfile, gdxfile)
@@ -490,7 +539,7 @@ execute_unload "gams_gdx_test.gdx", i, p, x, y;
         cnames = collect(Tables.columnnames(gdx2[:cost]))
         @test cnames[1:2] == [:i, :j]
 
-        rm(outfile, force=true)
+        rm(outfile, force = true)
     end
 
     @testset "Domain preservation with GAMS-generated file (issue #3)" begin
@@ -510,7 +559,7 @@ execute_unload "gams_gdx_test.gdx", i, p, x, y;
         x2 = get_symbol(gdx2, :x)
         @test x2.domain == x1.domain
 
-        rm(outfile, force=true)
+        rm(outfile, force = true)
     end
 
     @testset "Setting symbols via indexing" begin
@@ -546,7 +595,7 @@ execute_unload "gams_gdx_test.gdx", i, p, x, y;
 
     @testset "DataFrame metadata description" begin
         df = DataFrame(i = ["a", "b"], value = [1.0, 2.0])
-        metadata!(df, "description", "from metadata", style=:default)
+        metadata!(df, "description", "from metadata", style = :default)
 
         outfile = joinpath(tempdir(), "gdx_jl_metadata_desc.gdx")
         write_gdx(outfile, "meta_param" => df)
@@ -554,7 +603,7 @@ execute_unload "gams_gdx_test.gdx", i, p, x, y;
         gdxfile = read_gdx(outfile)
         @test get_symbol(gdxfile, :meta_param).description == "from metadata"
 
-        rm(outfile, force=true)
+        rm(outfile, force = true)
     end
 
     @testset "Tables.jl interface on GDXSymbol" begin

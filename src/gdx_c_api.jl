@@ -4,7 +4,7 @@
 # libgdx C library prefix for ccall:
 const GDX_C_PREFIX = "c__"
 macro cpfx(x)
-    s = strip(string(x),':')
+    s = strip(string(x), ':')
     return Expr(:quote, Symbol(GDX_C_PREFIX, s))
 end
 
@@ -39,7 +39,6 @@ const GAMS_SV_MINF = 4.0e300       # minus infinity
 const GAMS_SV_EPS = 5.0e300       # epsilon
 const GAMS_SV_ACR = 10.0e300      # potential / real acronym
 const GAMS_SV_NAINT = 2100000000    # not available / applicable for integers
-
 
 function parse_gdx_value(val::Float64)
     if val == GAMS_SV_UNDEF || val == GAMS_SV_NA
@@ -81,7 +80,16 @@ mutable struct GDXHandle
         cbuf = pointer.(buf)
         crvec = Vector{Cdouble}(undef, GMS_VAL_MAX)
         civec = Vector{Cint}(undef, GMS_MAX_INDEX_DIM)
-        return new(cptr, Ref{Cint}(-1), Ref{Cint}(-1), Ref{Cint}(-1), civec, crvec, buf, cbuf)
+        return new(
+            cptr,
+            Ref{Cint}(-1),
+            Ref{Cint}(-1),
+            Ref{Cint}(-1),
+            civec,
+            crvec,
+            buf,
+            cbuf,
+        )
     end
 end
 
@@ -90,7 +98,9 @@ struct GDXException <: Exception
     n_err::Int
 end
 
-Base.showerror(io::IO, e::GDXException) = print(io, "GDX failed: $(e.msg) ($(e.n_err))")
+function Base.showerror(io::IO, e::GDXException)
+    return print(io, "GDX failed: $(e.msg) ($(e.n_err))")
+end
 
 # =============================================================================
 # Core handle management
@@ -136,7 +146,12 @@ function gdx_open_read(gdx::GDXHandle, file::String)
     return rc
 end
 
-function gdx_open_write(gdx_ptr::Ptr{Cvoid}, file::String, producer::String, n_err::Ref{Cint})
+function gdx_open_write(
+    gdx_ptr::Ptr{Cvoid},
+    file::String,
+    producer::String,
+    n_err::Ref{Cint},
+)
     return ccall(
         (@cpfx(:gdxopenwrite), LIBGDX),
         Cint,
@@ -148,7 +163,11 @@ function gdx_open_write(gdx_ptr::Ptr{Cvoid}, file::String, producer::String, n_e
     )
 end
 
-function gdx_open_write(gdx::GDXHandle, file::String, producer::String="GAMS.jl")
+function gdx_open_write(
+    gdx::GDXHandle,
+    file::String,
+    producer::String = "GAMS.jl",
+)
     rc = gdx_open_write(gdx.cptr[], file, producer, gdx.cival)
     if gdx.cival[] != 0 || rc != 1
         throw(GDXException("Can't open file '$file' for writing", gdx.cival[]))
@@ -156,7 +175,9 @@ function gdx_open_write(gdx::GDXHandle, file::String, producer::String="GAMS.jl"
     return
 end
 
-gdx_close(gdx_ptr::Ptr{Cvoid}) = ccall((@cpfx(:gdxclose), LIBGDX), Cint, (Ptr{Cvoid},), gdx_ptr)
+function gdx_close(gdx_ptr::Ptr{Cvoid})
+    return ccall((@cpfx(:gdxclose), LIBGDX), Cint, (Ptr{Cvoid},), gdx_ptr)
+end
 
 function gdx_close(gdx::GDXHandle)
     gdx_close(gdx.cptr[])
@@ -167,7 +188,11 @@ end
 # System and symbol information
 # =============================================================================
 
-function gdx_system_info(gdx_ptr::Ptr{Cvoid}, sym_count::Ref{Cint}, uel_count::Ref{Cint})
+function gdx_system_info(
+    gdx_ptr::Ptr{Cvoid},
+    sym_count::Ref{Cint},
+    uel_count::Ref{Cint},
+)
     return ccall(
         (@cpfx(:gdxsysteminfo), LIBGDX),
         Cint,
@@ -235,7 +260,13 @@ end
 
 function gdx_symbol_info_x(gdx::GDXHandle, sym_id::Int)
     gdx.buf[1][1] = UInt8('\0')
-    rc = gdx_symbol_info_x(gdx.cptr[], sym_id, gdx.cival, gdx.cival2, gdx.cbuf[1])
+    rc = gdx_symbol_info_x(
+        gdx.cptr[],
+        sym_id,
+        gdx.cival,
+        gdx.cival2,
+        gdx.cbuf[1],
+    )
     if rc != 1
         throw(GDXException("Can't read extended symbol info", 0))
     end
@@ -258,7 +289,11 @@ function gdx_find_symbol(gdx::GDXHandle, name::String)
     return rc == 1, Int(gdx.cival[])
 end
 
-function gdx_symbol_get_domain_x(gdx_ptr::Ptr{Cvoid}, sym_nr::Int, domains::Vector{Ptr{UInt8}})
+function gdx_symbol_get_domain_x(
+    gdx_ptr::Ptr{Cvoid},
+    sym_nr::Int,
+    domains::Vector{Ptr{UInt8}},
+)
     return ccall(
         (@cpfx(:gdxsymbolgetdomainx), LIBGDX),
         Cint,
@@ -281,7 +316,11 @@ function gdx_symbol_get_domain_x(gdx::GDXHandle, sym_nr::Int, dim::Int)
     return domains
 end
 
-function gdx_symbol_set_domain_x(gdx_ptr::Ptr{Cvoid}, sym_nr::Int, domain_ids::Vector{String})
+function gdx_symbol_set_domain_x(
+    gdx_ptr::Ptr{Cvoid},
+    sym_nr::Int,
+    domain_ids::Vector{String},
+)
     return ccall(
         (@cpfx(:gdxsymbolsetdomainx), LIBGDX),
         Cint,
@@ -292,7 +331,11 @@ function gdx_symbol_set_domain_x(gdx_ptr::Ptr{Cvoid}, sym_nr::Int, domain_ids::V
     )
 end
 
-function gdx_symbol_set_domain_x(gdx::GDXHandle, sym_nr::Int, domain_ids::Vector{String})
+function gdx_symbol_set_domain_x(
+    gdx::GDXHandle,
+    sym_nr::Int,
+    domain_ids::Vector{String},
+)
     rc = gdx_symbol_set_domain_x(gdx.cptr[], sym_nr, domain_ids)
     return rc
 end
@@ -324,7 +367,12 @@ end
 # Set element text
 # =============================================================================
 
-function gdx_get_elem_text(gdx_ptr::Ptr{Cvoid}, text_nr::Int, text::Ptr{UInt8}, node::Ref{Cint})
+function gdx_get_elem_text(
+    gdx_ptr::Ptr{Cvoid},
+    text_nr::Int,
+    text::Ptr{UInt8},
+    node::Ref{Cint},
+)
     return ccall(
         (@cpfx(:gdxgetelemtext), LIBGDX),
         Cint,
@@ -365,7 +413,12 @@ end
 # UEL (Unique Element List) operations
 # =============================================================================
 
-function gdx_um_uel_get(gdx_ptr::Ptr{Cvoid}, uel_nr::Int, uel::Ptr{UInt8}, uel_map::Ref{Cint})
+function gdx_um_uel_get(
+    gdx_ptr::Ptr{Cvoid},
+    uel_nr::Int,
+    uel::Ptr{UInt8},
+    uel_map::Ref{Cint},
+)
     return ccall(
         (@cpfx(:gdxumuelget), LIBGDX),
         Cint,
@@ -387,7 +440,12 @@ function gdx_um_uel_get(gdx::GDXHandle, uel_nr::Int)
 end
 
 function gdx_uel_register_str_start(gdx_ptr::Ptr{Cvoid})
-    return ccall((@cpfx(:gdxuelregisterstrstart), LIBGDX), Cint, (Ptr{Cvoid},), gdx_ptr)
+    return ccall(
+        (@cpfx(:gdxuelregisterstrstart), LIBGDX),
+        Cint,
+        (Ptr{Cvoid},),
+        gdx_ptr,
+    )
 end
 
 function gdx_uel_register_str_start(gdx::GDXHandle)
@@ -398,7 +456,11 @@ function gdx_uel_register_str_start(gdx::GDXHandle)
     return
 end
 
-function gdx_uel_register_str(gdx_ptr::Ptr{Cvoid}, uel::String, uel_nr::Ref{Cint})
+function gdx_uel_register_str(
+    gdx_ptr::Ptr{Cvoid},
+    uel::String,
+    uel_nr::Ref{Cint},
+)
     return ccall(
         (@cpfx(:gdxuelregisterstr), LIBGDX),
         Cint,
@@ -415,7 +477,12 @@ function gdx_uel_register_str(gdx::GDXHandle, uel::String)
 end
 
 function gdx_uel_register_done(gdx_ptr::Ptr{Cvoid})
-    return ccall((@cpfx(:gdxuelregisterdone), LIBGDX), Cint, (Ptr{Cvoid},), gdx_ptr)
+    return ccall(
+        (@cpfx(:gdxuelregisterdone), LIBGDX),
+        Cint,
+        (Ptr{Cvoid},),
+        gdx_ptr,
+    )
 end
 
 function gdx_uel_register_done(gdx::GDXHandle)
@@ -430,7 +497,11 @@ end
 # Reading data (raw integer interface)
 # =============================================================================
 
-function gdx_data_read_raw_start(gdx_ptr::Ptr{Cvoid}, start::Int, n_rec::Ref{Cint})
+function gdx_data_read_raw_start(
+    gdx_ptr::Ptr{Cvoid},
+    start::Int,
+    n_rec::Ref{Cint},
+)
     return ccall(
         (@cpfx(:gdxdatareadrawstart), LIBGDX),
         Cint,
@@ -466,7 +537,11 @@ function gdx_data_read_raw(
     )
 end
 
-function gdx_data_read_raw(gdx::GDXHandle, idx::Vector{Int}, vals::Vector{Float64})
+function gdx_data_read_raw(
+    gdx::GDXHandle,
+    idx::Vector{Int},
+    vals::Vector{Float64},
+)
     @assert(length(idx) <= length(gdx.civec))
     @assert(length(vals) <= length(gdx.crvec))
 
@@ -488,7 +563,11 @@ end
 # Reading data (string interface)
 # =============================================================================
 
-function gdx_data_read_str_start(gdx_ptr::Ptr{Cvoid}, start::Int, n_err::Ref{Cint})
+function gdx_data_read_str_start(
+    gdx_ptr::Ptr{Cvoid},
+    start::Int,
+    n_err::Ref{Cint},
+)
     return ccall(
         (@cpfx(:gdxdatareadstrstart), LIBGDX),
         Cint,
@@ -524,7 +603,11 @@ function gdx_data_read_str(
     )
 end
 
-function gdx_data_read_str(gdx::GDXHandle, keystr::Vector{String}, vals::Vector{Float64})
+function gdx_data_read_str(
+    gdx::GDXHandle,
+    keystr::Vector{String},
+    vals::Vector{Float64},
+)
     @assert(length(keystr) <= length(gdx.cbuf))
     @assert(length(vals) <= length(gdx.crvec))
 
@@ -547,7 +630,12 @@ function gdx_data_read_str(gdx::GDXHandle, keystr::Vector{String}, vals::Vector{
 end
 
 function gdx_data_read_done(gdx_ptr::Ptr{Cvoid})
-    return ccall((@cpfx(:gdxdatareaddone), LIBGDX), Cint, (Ptr{Cvoid},), gdx_ptr)
+    return ccall(
+        (@cpfx(:gdxdatareaddone), LIBGDX),
+        Cint,
+        (Ptr{Cvoid},),
+        gdx_ptr,
+    )
 end
 
 function gdx_data_read_done(gdx::GDXHandle)
@@ -580,7 +668,14 @@ function gdx_data_write_str_start(
     )
 end
 
-function gdx_data_write_str_start(gdx::GDXHandle, name::String, text::String, dim::Int, typ::Int, user_info::Int=0)
+function gdx_data_write_str_start(
+    gdx::GDXHandle,
+    name::String,
+    text::String,
+    dim::Int,
+    typ::Int,
+    user_info::Int = 0,
+)
     rc = gdx_data_write_str_start(gdx.cptr[], name, text, dim, typ, user_info)
     if rc != 1
         throw(GDXException("Can't start writing symbol '$name'", 0))
@@ -588,7 +683,11 @@ function gdx_data_write_str_start(gdx::GDXHandle, name::String, text::String, di
     return
 end
 
-function gdx_data_write_str(gdx_ptr::Ptr{Cvoid}, keys::Vector{String}, vals::Vector{Float64})
+function gdx_data_write_str(
+    gdx_ptr::Ptr{Cvoid},
+    keys::Vector{String},
+    vals::Vector{Float64},
+)
     return ccall(
         (@cpfx(:gdxdatawritestr), LIBGDX),
         Cint,
@@ -599,7 +698,11 @@ function gdx_data_write_str(gdx_ptr::Ptr{Cvoid}, keys::Vector{String}, vals::Vec
     )
 end
 
-function gdx_data_write_str(gdx::GDXHandle, keys::Vector{String}, vals::Vector{Float64})
+function gdx_data_write_str(
+    gdx::GDXHandle,
+    keys::Vector{String},
+    vals::Vector{Float64},
+)
     rc = gdx_data_write_str(gdx.cptr[], keys, vals)
     if rc != 1
         throw(GDXException("Can't write record", 0))
@@ -608,7 +711,12 @@ function gdx_data_write_str(gdx::GDXHandle, keys::Vector{String}, vals::Vector{F
 end
 
 function gdx_data_write_done(gdx_ptr::Ptr{Cvoid})
-    return ccall((@cpfx(:gdxdatawritedone), LIBGDX), Cint, (Ptr{Cvoid},), gdx_ptr)
+    return ccall(
+        (@cpfx(:gdxdatawritedone), LIBGDX),
+        Cint,
+        (Ptr{Cvoid},),
+        gdx_ptr,
+    )
 end
 
 function gdx_data_write_done(gdx::GDXHandle)
