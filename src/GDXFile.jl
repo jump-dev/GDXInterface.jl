@@ -1,7 +1,5 @@
 # High-level GDX file API for GDXInterface.jl
 
-# requires `import DataFrames`
-
 # =============================================================================
 # Enums
 # =============================================================================
@@ -33,44 +31,44 @@ end
 # Symbol types
 # =============================================================================
 
-abstract type GDXSymbol end
+abstract type GDXSymbol{T} end
 
 """
-    GDXSet
+    GDXSet{T}
 
 A GAMS set with its elements and optional explanatory text.
 Records may include an `element_text` column.
 """
-struct GDXSet <: GDXSymbol
+struct GDXSet{T} <: GDXSymbol{T}
     name::String
     description::String
     domain::Vector{String}
-    records::DataFrames.DataFrame
+    records::T
 end
 
 """
-    GDXParameter
+    GDXParameter{T}
 
 A GAMS parameter with domain and values.
 """
-struct GDXParameter <: GDXSymbol
+struct GDXParameter{T} <: GDXSymbol{T}
     name::String
     description::String
     domain::Vector{String}
-    records::DataFrames.DataFrame
+    records::T
 end
 
 """
-    GDXVariable
+    GDXVariable{T}
 
 A GAMS variable with level, marginal, lower, upper, and scale values.
 """
-struct GDXVariable <: GDXSymbol
+struct GDXVariable{T} <: GDXSymbol{T}
     name::String
     description::String
     domain::Vector{String}
     vartype::VariableType
-    records::DataFrames.DataFrame
+    records::T
 end
 
 function GDXVariable(
@@ -78,22 +76,22 @@ function GDXVariable(
     desc::String,
     domain::Vector{String},
     vartype::Integer,
-    records::DataFrames.DataFrame,
+    records,
 )
     return GDXVariable(name, desc, domain, VariableType(vartype), records)
 end
 
 """
-    GDXEquation
+    GDXEquation{T}
 
 A GAMS equation with level, marginal, lower, upper, and scale values.
 """
-struct GDXEquation <: GDXSymbol
+struct GDXEquation{T} <: GDXSymbol{T}
     name::String
     description::String
     domain::Vector{String}
     equtype::EquationType
-    records::DataFrames.DataFrame
+    records::T
 end
 
 function GDXEquation(
@@ -101,7 +99,7 @@ function GDXEquation(
     desc::String,
     domain::Vector{String},
     equtype::Integer,
-    records::DataFrames.DataFrame,
+    records,
 )
     return GDXEquation(name, desc, domain, EquationType(equtype), records)
 end
@@ -111,7 +109,7 @@ end
 
 A GAMS alias referencing another set by name.
 """
-struct GDXAlias <: GDXSymbol
+struct GDXAlias <: GDXSymbol{Nothing}
     name::String
     description::String
     alias_for::String
@@ -120,6 +118,17 @@ end
 function Base.show(io::IO, a::GDXAlias)
     return print(io, "GDXAlias: $(a.name) -> $(a.alias_for)")
 end
+
+# =============================================================================
+# Tables.jl interface for GDXSymbol types
+# =============================================================================
+
+const GDXRecordSymbol = Union{GDXSet,GDXParameter,GDXVariable,GDXEquation}
+
+Tables.istable(::Type{<:GDXRecordSymbol}) = true
+Tables.columnaccess(::Type{<:GDXRecordSymbol}) = true
+Tables.columns(sym::GDXRecordSymbol) = Tables.columns(sym.records)
+Tables.schema(sym::GDXRecordSymbol) = Tables.schema(sym.records)
 
 # =============================================================================
 # Case-insensitive key helpers
@@ -142,7 +151,7 @@ is preserved in the symbol's `name` field.
 # Example
 ```julia
 gdx = read_gdx("model.gdx")
-gdx[:demand]              # Access records as DataFrame
+gdx[:demand]              # Access records
 get_symbol(gdx, :demand)  # Access full GDXSymbol object
 list_parameters(gdx)      # List all parameters
 ```
@@ -230,12 +239,12 @@ end
     get_symbol(gdx::GDXFile, sym) -> GDXSymbol
 
 Return the full GDXSymbol object (with name, description, domain, etc.),
-not just the records DataFrame. Lookup is case-insensitive.
+not just the records. Lookup is case-insensitive.
 """
 get_symbol(gdx::GDXFile, sym::Symbol) = gdx._symbols[_symkey(sym)]
 get_symbol(gdx::GDXFile, sym::String) = gdx._symbols[_symkey(sym)]
 
-# Resolve alias chains to get the underlying records DataFrame
+# Resolve alias chains to get the underlying records
 function _get_records(
     gdx::GDXFile,
     sym::GDXSymbol,
@@ -248,7 +257,7 @@ function _get_records(
     return _get_records(gdx, gdx._symbols[key], seen)
 end
 
-# Dictionary-like access (returns records DataFrame, resolving aliases)
+# Dictionary-like access (returns records, resolving aliases)
 function Base.getindex(gdx::GDXFile, sym::Symbol)
     return _get_records(gdx, gdx._symbols[_symkey(sym)])
 end
@@ -301,12 +310,19 @@ end
 # =============================================================================
 
 """
-    read_gdx(filepath::String; parse_integers=true, only=nothing) -> GDXFile
+    read_gdx(filepath::String[, sink]; parse_integers=true, only=nothing) -> GDXFile
 
 Read a GDX file and return a GDXFile container with all symbols.
 
+The optional `sink` argument is a callable that materializes the intermediate
+columnar data (a `NamedTuple` of vectors) into the desired table type. It
+defaults to `Tables.columntable` (returns `NamedTuple` of vectors). Pass e.g.
+`DataFrame` to get DataFrames.
+
 # Arguments
 - `filepath`: Path to the GDX file
+- `sink`: A callable `sink(::NamedTuple)` that produces the table storage type.
+  Defaults to `Tables.columntable`.
 - `parse_integers`: If true, attempt to parse set elements that look like integers as Int
 - `only`: Optional collection of symbol names (Strings or Symbols) to read.
   When provided, only the specified symbols are loaded from the file.
@@ -314,13 +330,21 @@ Read a GDX file and return a GDXFile container with all symbols.
 # Example
 ```julia
 gdx = read_gdx("transport.gdx")
+demand = gdx[:demand]  # Get parameter as NamedTuple of vectors
+
+using DataFrames
+gdx = read_gdx("transport.gdx", DataFrame)
 demand = gdx[:demand]  # Get parameter as DataFrame
 
-# Read only specific symbols from a large file
 gdx = read_gdx("big_model.gdx", only=[:x, :demand])
 ```
 """
-function read_gdx(filepath::String; parse_integers::Bool = true, only = nothing)
+function read_gdx(
+    filepath::String,
+    sink = Tables.columntable;
+    parse_integers::Bool = true,
+    only = nothing,
+)
     gdx = GDXHandle()
     gdx_create(gdx)
     only_filter = only === nothing ? nothing : Set{Symbol}(_symkey.(only))
@@ -346,7 +370,14 @@ function read_gdx(filepath::String; parse_integers::Bool = true, only = nothing)
                 _insert!(
                     gdxfile,
                     sym_key,
-                    _read_set(gdx, sym_nr, sym_name, sym_dim, sym_description),
+                    _read_set(
+                        gdx,
+                        sym_nr,
+                        sym_name,
+                        sym_dim,
+                        sym_description,
+                        sink,
+                    ),
                 )
             elseif sym_type == GMS_DT_PAR
                 _insert!(
@@ -359,6 +390,7 @@ function read_gdx(filepath::String; parse_integers::Bool = true, only = nothing)
                         sym_dim,
                         sym_description,
                         parse_integers,
+                        sink,
                     ),
                 )
             elseif sym_type == GMS_DT_VAR
@@ -373,6 +405,7 @@ function read_gdx(filepath::String; parse_integers::Bool = true, only = nothing)
                         sym_description,
                         sym_user_info,
                         parse_integers,
+                        sink,
                     ),
                 )
             elseif sym_type == GMS_DT_EQU
@@ -387,6 +420,7 @@ function read_gdx(filepath::String; parse_integers::Bool = true, only = nothing)
                         sym_description,
                         sym_user_info,
                         parse_integers,
+                        sink,
                     ),
                 )
             elseif sym_type == GMS_DT_ALIAS
@@ -414,6 +448,7 @@ function _read_set(
     name::String,
     dim::Int,
     description::String,
+    sink,
 )
     domains = dim > 0 ? gdx_symbol_get_domain_x(gdx, sym_nr, dim) : String[]
 
@@ -433,11 +468,10 @@ function _read_set(
     end
     gdx_data_read_done(gdx)
 
-    df = DataFrames.DataFrame()
-    for (d, domain) in enumerate(domains)
-        col_name = domain == "*" ? "dim$d" : domain
-        df[!, col_name] = columns[d]
-    end
+    col_names = Symbol[
+        Symbol(domain == "*" ? "dim$d" : domain) for
+        (d, domain) in enumerate(domains)
+    ]
 
     has_text = any(>(0), text_nrs)
     if has_text
@@ -450,10 +484,15 @@ function _read_set(
                 element_text[i] = ""
             end
         end
-        df[!, :element_text] = element_text
+        nt = NamedTuple{(col_names..., :element_text)}((
+            columns...,
+            element_text,
+        ))
+    else
+        nt = NamedTuple{Tuple(col_names)}(Tuple(columns))
     end
 
-    return GDXSet(name, description, domains, df)
+    return GDXSet(name, description, domains, sink(nt))
 end
 
 function _read_parameter(
@@ -463,6 +502,7 @@ function _read_parameter(
     dim::Int,
     description::String,
     parse_integers::Bool,
+    sink,
 )
     domains = dim > 0 ? gdx_symbol_get_domain_x(gdx, sym_nr, dim) : String[]
 
@@ -482,21 +522,14 @@ function _read_parameter(
     end
     gdx_data_read_done(gdx)
 
-    df = DataFrames.DataFrame()
-    for (d, domain) in enumerate(domains)
-        col_name = domain == "*" ? "dim$d" : domain
-        col_data = columns[d]
-        if parse_integers
-            col_data = _try_parse_integers(col_data)
-        end
-        df[!, col_name] = col_data
-    end
-    df[!, :value] = values
+    col_names = Symbol[
+        Symbol(domain == "*" ? "dim$d" : domain) for
+        (d, domain) in enumerate(domains)
+    ]
+    col_data = Any[parse_integers ? _try_parse_integers(c) : c for c in columns]
 
-    DataFrames.metadata!(df, "name", name; style = :default)
-    DataFrames.metadata!(df, "description", description; style = :default)
-
-    return GDXParameter(name, description, domains, df)
+    nt = NamedTuple{(col_names..., :value)}((col_data..., values))
+    return GDXParameter(name, description, domains, sink(nt))
 end
 
 function _read_variable(
@@ -507,6 +540,7 @@ function _read_variable(
     description::String,
     user_info::Int,
     parse_integers::Bool,
+    sink,
 )
     domains = dim > 0 ? gdx_symbol_get_domain_x(gdx, sym_nr, dim) : String[]
 
@@ -534,25 +568,27 @@ function _read_variable(
     end
     gdx_data_read_done(gdx)
 
-    df = DataFrames.DataFrame()
-    for (d, domain) in enumerate(domains)
-        col_name = domain == "*" ? "dim$d" : domain
-        col_data = columns[d]
-        if parse_integers
-            col_data = _try_parse_integers(col_data)
-        end
-        df[!, col_name] = col_data
-    end
-    df[!, :level] = level
-    df[!, :marginal] = marginal
-    df[!, :lower] = lower
-    df[!, :upper] = upper
-    df[!, :scale] = scale
+    col_names = Symbol[
+        Symbol(domain == "*" ? "dim$d" : domain) for
+        (d, domain) in enumerate(domains)
+    ]
+    col_data = Any[parse_integers ? _try_parse_integers(c) : c for c in columns]
 
-    DataFrames.metadata!(df, "name", name; style = :default)
-    DataFrames.metadata!(df, "description", description; style = :default)
-
-    return GDXVariable(name, description, domains, VariableType(user_info), df)
+    nt = NamedTuple{(col_names..., :level, :marginal, :lower, :upper, :scale)}((
+        col_data...,
+        level,
+        marginal,
+        lower,
+        upper,
+        scale,
+    ))
+    return GDXVariable(
+        name,
+        description,
+        domains,
+        VariableType(user_info),
+        sink(nt),
+    )
 end
 
 function _read_equation(
@@ -563,6 +599,7 @@ function _read_equation(
     description::String,
     user_info::Int,
     parse_integers::Bool,
+    sink,
 )
     domains = dim > 0 ? gdx_symbol_get_domain_x(gdx, sym_nr, dim) : String[]
 
@@ -590,25 +627,27 @@ function _read_equation(
     end
     gdx_data_read_done(gdx)
 
-    df = DataFrames.DataFrame()
-    for (d, domain) in enumerate(domains)
-        col_name = domain == "*" ? "dim$d" : domain
-        col_data = columns[d]
-        if parse_integers
-            col_data = _try_parse_integers(col_data)
-        end
-        df[!, col_name] = col_data
-    end
-    df[!, :level] = level
-    df[!, :marginal] = marginal
-    df[!, :lower] = lower
-    df[!, :upper] = upper
-    df[!, :scale] = scale
+    col_names = Symbol[
+        Symbol(domain == "*" ? "dim$d" : domain) for
+        (d, domain) in enumerate(domains)
+    ]
+    col_data = Any[parse_integers ? _try_parse_integers(c) : c for c in columns]
 
-    DataFrames.metadata!(df, "name", name; style = :default)
-    DataFrames.metadata!(df, "description", description; style = :default)
-
-    return GDXEquation(name, description, domains, EquationType(user_info), df)
+    nt = NamedTuple{(col_names..., :level, :marginal, :lower, :upper, :scale)}((
+        col_data...,
+        level,
+        marginal,
+        lower,
+        upper,
+        scale,
+    ))
+    return GDXEquation(
+        name,
+        description,
+        domains,
+        EquationType(user_info),
+        sink(nt),
+    )
 end
 
 # =============================================================================
@@ -658,20 +697,26 @@ function write_gdx(
 end
 
 """
-    write_gdx(filepath::String, symbols::Pair{String, DataFrame}...; producer="GDXInterface.jl")
+    write_gdx(filepath::String, symbols::Pair{String}...; producer="GDXInterface.jl")
 
-Write DataFrames to a GDX file as parameters. Each pair maps a symbol name to its DataFrame.
-The DataFrame must have a `:value` column; all other columns are treated as domain dimensions.
+Write tables to a GDX file as parameters. Each pair maps a symbol name to a
+Tables.jl-compatible table. The table must have a `:value` column; all other
+columns are treated as domain dimensions.
 
 # Example
 ```julia
+using DataFrames
 df = DataFrame(i=["a", "b", "c"], value=[1.0, 2.0, 3.0])
 write_gdx("output.gdx", "demand" => df)
+
+# Or with NamedTuples directly:
+nt = (; i=["a", "b", "c"], value=[1.0, 2.0, 3.0])
+write_gdx("output.gdx", "demand" => nt)
 ```
 """
 function write_gdx(
     filepath::String,
-    symbols::Pair{String,DataFrames.DataFrame}...;
+    symbols::Pair{String}...;
     producer::String = "GDXInterface.jl",
 )
     gdx = GDXHandle()
@@ -680,9 +725,8 @@ function write_gdx(
     try
         gdx_open_write(gdx, filepath, producer)
 
-        for (name, df) in symbols
-            desc = get(DataFrames.metadata(df), "description", "")
-            _write_parameter_df(gdx, name, df, desc)
+        for (name, tbl) in symbols
+            _write_parameter_table(gdx, name, tbl, _table_description(tbl))
         end
 
         gdx_close(gdx)
@@ -703,6 +747,11 @@ function _set_domain_x(
     return found && gdx_symbol_set_domain_x(gdx, sym_nr, domain)
 end
 
+function _table_description(tbl)
+    DataAPI.metadatasupport(typeof(tbl)).read || return ""
+    return DataAPI.metadata(tbl, "description", "")
+end
+
 # Type dispatch for writing symbols
 _write_symbol(gdx::GDXHandle, sym::GDXSet) = _write_set(gdx, sym)
 _write_symbol(gdx::GDXHandle, sym::GDXParameter) = _write_parameter(gdx, sym)
@@ -710,27 +759,27 @@ _write_symbol(gdx::GDXHandle, sym::GDXVariable) = _write_variable(gdx, sym)
 _write_symbol(gdx::GDXHandle, sym::GDXEquation) = _write_equation(gdx, sym)
 
 function _write_set(gdx::GDXHandle, sym::GDXSet)
-    df = sym.records
-    has_text = "element_text" in names(df)
-    cols = [n for n in names(df) if n != "element_text"]
-    dim = length(cols)
+    tbl = Tables.columns(sym.records)
+    col_names = collect(Tables.columnnames(tbl))
+    has_text = :element_text in col_names
+    dim_cols =
+        has_text ? filter(!=(Symbol("element_text")), col_names) : col_names
+    dim = length(dim_cols)
 
     gdx_data_write_str_start(gdx, sym.name, sym.description, dim, GMS_DT_SET)
 
     keys = Vector{String}(undef, dim)
     vals = zeros(Float64, GMS_VAL_MAX)
 
-    for row in eachrow(df)
-        for (i, col) in enumerate(cols)
-            keys[i] = string(row[col])
+    n_rows = length(Tables.getcolumn(tbl, first(col_names)))
+    for i in 1:n_rows
+        for (j, col) in enumerate(dim_cols)
+            keys[j] = string(Tables.getcolumn(tbl, col)[i])
         end
         if has_text
-            text = string(row[:element_text])
-            if !isempty(text)
-                vals[GAMS_VALUE_LEVEL] = Float64(gdx_add_set_text(gdx, text))
-            else
-                vals[GAMS_VALUE_LEVEL] = 0.0
-            end
+            text = string(Tables.getcolumn(tbl, :element_text)[i])
+            vals[GAMS_VALUE_LEVEL] =
+                isempty(text) ? 0.0 : Float64(gdx_add_set_text(gdx, text))
         end
         gdx_data_write_str(gdx, keys, vals)
     end
@@ -740,7 +789,7 @@ function _write_set(gdx::GDXHandle, sym::GDXSet)
 end
 
 function _write_parameter(gdx::GDXHandle, sym::GDXParameter)
-    return _write_parameter_df(
+    return _write_parameter_table(
         gdx,
         sym.name,
         sym.records,
@@ -749,26 +798,29 @@ function _write_parameter(gdx::GDXHandle, sym::GDXParameter)
     )
 end
 
-function _write_parameter_df(
+function _write_parameter_table(
     gdx::GDXHandle,
     name::String,
-    df::DataFrames.DataFrame,
+    tbl,
     description::String = "",
     domain::Vector{String} = String[],
 )
-    dim_cols = [n for n in names(df) if n != "value"]
+    cols = Tables.columns(tbl)
+    col_names = collect(Tables.columnnames(cols))
+    dim_cols = filter(!=(:value), col_names)
     dim = length(dim_cols)
 
     gdx_data_write_str_start(gdx, name, description, dim, GMS_DT_PAR)
 
     keys = Vector{String}(undef, dim)
     vals = zeros(Float64, GMS_VAL_MAX)
+    value_col = Tables.getcolumn(cols, :value)
 
-    for row in eachrow(df)
-        for (i, col) in enumerate(dim_cols)
-            keys[i] = string(row[col])
+    for i in 1:length(value_col)
+        for (j, col) in enumerate(dim_cols)
+            keys[j] = string(Tables.getcolumn(cols, col)[i])
         end
-        vals[GAMS_VALUE_LEVEL] = _to_gdx_value(row[:value])
+        vals[GAMS_VALUE_LEVEL] = _to_gdx_value(value_col[i])
         gdx_data_write_str(gdx, keys, vals)
     end
 
@@ -776,11 +828,12 @@ function _write_parameter_df(
     return _set_domain_x(gdx, name, domain, dim)
 end
 
-const _VAR_EQU_COLS = Set(["level", "marginal", "lower", "upper", "scale"])
+const _VAR_EQU_COLS = Set([:level, :marginal, :lower, :upper, :scale])
 
 function _write_variable(gdx::GDXHandle, sym::GDXVariable)
-    df = sym.records
-    dim_cols = [n for n in names(df) if !(n in _VAR_EQU_COLS)]
+    tbl = Tables.columns(sym.records)
+    col_names = collect(Tables.columnnames(tbl))
+    dim_cols = filter(c -> !(c in _VAR_EQU_COLS), col_names)
     dim = length(dim_cols)
 
     gdx_data_write_str_start(
@@ -795,15 +848,21 @@ function _write_variable(gdx::GDXHandle, sym::GDXVariable)
     keys = Vector{String}(undef, dim)
     vals = zeros(Float64, GMS_VAL_MAX)
 
-    for row in eachrow(df)
-        for (i, col) in enumerate(dim_cols)
-            keys[i] = string(row[col])
+    level_col = Tables.getcolumn(tbl, :level)
+    marginal_col = Tables.getcolumn(tbl, :marginal)
+    lower_col = Tables.getcolumn(tbl, :lower)
+    upper_col = Tables.getcolumn(tbl, :upper)
+    scale_col = Tables.getcolumn(tbl, :scale)
+
+    for i in 1:length(level_col)
+        for (j, col) in enumerate(dim_cols)
+            keys[j] = string(Tables.getcolumn(tbl, col)[i])
         end
-        vals[GAMS_VALUE_LEVEL] = _to_gdx_value(row[:level])
-        vals[GAMS_VALUE_MARGINAL] = _to_gdx_value(row[:marginal])
-        vals[GAMS_VALUE_LOWER] = _to_gdx_value(row[:lower])
-        vals[GAMS_VALUE_UPPER] = _to_gdx_value(row[:upper])
-        vals[GAMS_VALUE_SCALE] = _to_gdx_value(row[:scale])
+        vals[GAMS_VALUE_LEVEL] = _to_gdx_value(level_col[i])
+        vals[GAMS_VALUE_MARGINAL] = _to_gdx_value(marginal_col[i])
+        vals[GAMS_VALUE_LOWER] = _to_gdx_value(lower_col[i])
+        vals[GAMS_VALUE_UPPER] = _to_gdx_value(upper_col[i])
+        vals[GAMS_VALUE_SCALE] = _to_gdx_value(scale_col[i])
         gdx_data_write_str(gdx, keys, vals)
     end
 
@@ -812,8 +871,9 @@ function _write_variable(gdx::GDXHandle, sym::GDXVariable)
 end
 
 function _write_equation(gdx::GDXHandle, sym::GDXEquation)
-    df = sym.records
-    dim_cols = [n for n in names(df) if !(n in _VAR_EQU_COLS)]
+    tbl = Tables.columns(sym.records)
+    col_names = collect(Tables.columnnames(tbl))
+    dim_cols = filter(c -> !(c in _VAR_EQU_COLS), col_names)
     dim = length(dim_cols)
 
     gdx_data_write_str_start(
@@ -828,15 +888,21 @@ function _write_equation(gdx::GDXHandle, sym::GDXEquation)
     keys = Vector{String}(undef, dim)
     vals = zeros(Float64, GMS_VAL_MAX)
 
-    for row in eachrow(df)
-        for (i, col) in enumerate(dim_cols)
-            keys[i] = string(row[col])
+    level_col = Tables.getcolumn(tbl, :level)
+    marginal_col = Tables.getcolumn(tbl, :marginal)
+    lower_col = Tables.getcolumn(tbl, :lower)
+    upper_col = Tables.getcolumn(tbl, :upper)
+    scale_col = Tables.getcolumn(tbl, :scale)
+
+    for i in 1:length(level_col)
+        for (j, col) in enumerate(dim_cols)
+            keys[j] = string(Tables.getcolumn(tbl, col)[i])
         end
-        vals[GAMS_VALUE_LEVEL] = _to_gdx_value(row[:level])
-        vals[GAMS_VALUE_MARGINAL] = _to_gdx_value(row[:marginal])
-        vals[GAMS_VALUE_LOWER] = _to_gdx_value(row[:lower])
-        vals[GAMS_VALUE_UPPER] = _to_gdx_value(row[:upper])
-        vals[GAMS_VALUE_SCALE] = _to_gdx_value(row[:scale])
+        vals[GAMS_VALUE_LEVEL] = _to_gdx_value(level_col[i])
+        vals[GAMS_VALUE_MARGINAL] = _to_gdx_value(marginal_col[i])
+        vals[GAMS_VALUE_LOWER] = _to_gdx_value(lower_col[i])
+        vals[GAMS_VALUE_UPPER] = _to_gdx_value(upper_col[i])
+        vals[GAMS_VALUE_SCALE] = _to_gdx_value(scale_col[i])
         gdx_data_write_str(gdx, keys, vals)
     end
 

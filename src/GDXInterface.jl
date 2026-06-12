@@ -1,6 +1,7 @@
 module GDXInterface
 
-import DataFrames
+import DataAPI
+import Tables
 import gdx_jll
 const LIBGDX = gdx_jll.libgdx
 
