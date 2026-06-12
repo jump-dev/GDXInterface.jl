@@ -197,7 +197,7 @@ function Base.show(io::IO, gdx::GDXFile)
     isempty(vars) ||
         println(io, "  Variables ($(length(vars))): ", join(vars, ", "))
     return isempty(eqns) ||
-        println(io, "  Equations ($(length(eqns))): ", join(eqns, ", "))
+           println(io, "  Equations ($(length(eqns))): ", join(eqns, ", "))
 end
 
 # Symbol listing (returns original-case names)
