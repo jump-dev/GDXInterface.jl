@@ -113,7 +113,7 @@ end
 # =============================================================================
 
 function gdx_create(gdx_ptr::Ref{Ptr{Cvoid}})
-    ccall((:xcreate, LIBGDX), Cvoid, (Ptr{Ptr{Cvoid}},), gdx_ptr)
+    ccall((:xcreate, libgdx), Cvoid, (Ptr{Ptr{Cvoid}},), gdx_ptr)
     if gdx_ptr[] == C_NULL
         throw(GDXException("Can't create GAMS GDX object", 0))
     end
@@ -123,7 +123,7 @@ end
 gdx_create(gdx::GDXHandle) = gdx_create(gdx.cptr)
 
 function gdx_free(gdx_ptr::Ref{Ptr{Cvoid}})
-    ccall((:xfree, LIBGDX), Cvoid, (Ptr{Ptr{Cvoid}},), gdx_ptr)
+    ccall((:xfree, libgdx), Cvoid, (Ptr{Ptr{Cvoid}},), gdx_ptr)
     return
 end
 
@@ -135,7 +135,7 @@ gdx_free(gdx::GDXHandle) = gdx_free(gdx.cptr)
 
 function gdx_open_read(gdx_ptr::Ptr{Cvoid}, file::String, n_err::Ref{Cint})
     return ccall(
-        (@cpfx(:gdxopenread), LIBGDX),
+        (@cpfx(:gdxopenread), libgdx),
         Cint,
         (Ptr{Cvoid}, Cstring, Ref{Cint}),
         gdx_ptr,
@@ -159,7 +159,7 @@ function gdx_open_write(
     n_err::Ref{Cint},
 )
     return ccall(
-        (@cpfx(:gdxopenwrite), LIBGDX),
+        (@cpfx(:gdxopenwrite), libgdx),
         Cint,
         (Ptr{Cvoid}, Cstring, Cstring, Ref{Cint}),
         gdx_ptr,
@@ -182,7 +182,7 @@ function gdx_open_write(
 end
 
 function gdx_close(gdx_ptr::Ptr{Cvoid})
-    return ccall((@cpfx(:gdxclose), LIBGDX), Cint, (Ptr{Cvoid},), gdx_ptr)
+    return ccall((@cpfx(:gdxclose), libgdx), Cint, (Ptr{Cvoid},), gdx_ptr)
 end
 
 function gdx_close(gdx::GDXHandle)
@@ -200,7 +200,7 @@ function gdx_system_info(
     uel_count::Ref{Cint},
 )
     return ccall(
-        (@cpfx(:gdxsysteminfo), LIBGDX),
+        (@cpfx(:gdxsysteminfo), libgdx),
         Cint,
         (Ptr{Cvoid}, Ref{Cint}, Ref{Cint}),
         gdx_ptr,
@@ -225,7 +225,7 @@ function gdx_symbol_info(
     type::Ref{Cint},
 )
     return ccall(
-        (@cpfx(:gdxsymbolinfo), LIBGDX),
+        (@cpfx(:gdxsymbolinfo), libgdx),
         Cint,
         (Ptr{Cvoid}, Cint, Ptr{UInt8}, Ref{Cint}, Ref{Cint}),
         gdx_ptr,
@@ -253,7 +253,7 @@ function gdx_symbol_info_x(
     text::Ptr{UInt8},
 )
     return ccall(
-        (@cpfx(:gdxsymbolinfox), LIBGDX),
+        (@cpfx(:gdxsymbolinfox), libgdx),
         Cint,
         (Ptr{Cvoid}, Cint, Ref{Cint}, Ref{Cint}, Ptr{UInt8}),
         gdx_ptr,
@@ -281,7 +281,7 @@ end
 
 function gdx_find_symbol(gdx_ptr::Ptr{Cvoid}, name::String, sym_nr::Ref{Cint})
     return ccall(
-        (@cpfx(:gdxfindsymbol), LIBGDX),
+        (@cpfx(:gdxfindsymbol), libgdx),
         Cint,
         (Ptr{Cvoid}, Cstring, Ref{Cint}),
         gdx_ptr,
@@ -301,7 +301,7 @@ function gdx_symbol_get_domain_x(
     domains::Vector{Ptr{UInt8}},
 )
     return ccall(
-        (@cpfx(:gdxsymbolgetdomainx), LIBGDX),
+        (@cpfx(:gdxsymbolgetdomainx), libgdx),
         Cint,
         (Ptr{Cvoid}, Cint, Ptr{Ptr{UInt8}}),
         gdx_ptr,
@@ -328,7 +328,7 @@ function gdx_symbol_set_domain_x(
     domain_ids::Vector{String},
 )
     return ccall(
-        (@cpfx(:gdxsymbolsetdomainx), LIBGDX),
+        (@cpfx(:gdxsymbolsetdomainx), libgdx),
         Cint,
         (Ptr{Cvoid}, Cint, Ptr{Cstring}),
         gdx_ptr,
@@ -352,7 +352,7 @@ end
 
 function gdx_add_alias(gdx_ptr::Ptr{Cvoid}, id1::String, id2::String)
     return ccall(
-        (@cpfx(:gdxaddalias), LIBGDX),
+        (@cpfx(:gdxaddalias), libgdx),
         Cint,
         (Ptr{Cvoid}, Cstring, Cstring),
         gdx_ptr,
@@ -380,7 +380,7 @@ function gdx_get_elem_text(
     node::Ref{Cint},
 )
     return ccall(
-        (@cpfx(:gdxgetelemtext), LIBGDX),
+        (@cpfx(:gdxgetelemtext), libgdx),
         Cint,
         (Ptr{Cvoid}, Cint, Ptr{UInt8}, Ref{Cint}),
         gdx_ptr,
@@ -398,7 +398,7 @@ end
 
 function gdx_add_set_text(gdx_ptr::Ptr{Cvoid}, text::String, text_nr::Ref{Cint})
     return ccall(
-        (@cpfx(:gdxaddsettext), LIBGDX),
+        (@cpfx(:gdxaddsettext), libgdx),
         Cint,
         (Ptr{Cvoid}, Cstring, Ref{Cint}),
         gdx_ptr,
@@ -426,7 +426,7 @@ function gdx_um_uel_get(
     uel_map::Ref{Cint},
 )
     return ccall(
-        (@cpfx(:gdxumuelget), LIBGDX),
+        (@cpfx(:gdxumuelget), libgdx),
         Cint,
         (Ptr{Cvoid}, Cint, Ptr{UInt8}, Ref{Cint}),
         gdx_ptr,
@@ -447,7 +447,7 @@ end
 
 function gdx_uel_register_str_start(gdx_ptr::Ptr{Cvoid})
     return ccall(
-        (@cpfx(:gdxuelregisterstrstart), LIBGDX),
+        (@cpfx(:gdxuelregisterstrstart), libgdx),
         Cint,
         (Ptr{Cvoid},),
         gdx_ptr,
@@ -468,7 +468,7 @@ function gdx_uel_register_str(
     uel_nr::Ref{Cint},
 )
     return ccall(
-        (@cpfx(:gdxuelregisterstr), LIBGDX),
+        (@cpfx(:gdxuelregisterstr), libgdx),
         Cint,
         (Ptr{Cvoid}, Cstring, Ref{Cint}),
         gdx_ptr,
@@ -484,7 +484,7 @@ end
 
 function gdx_uel_register_done(gdx_ptr::Ptr{Cvoid})
     return ccall(
-        (@cpfx(:gdxuelregisterdone), LIBGDX),
+        (@cpfx(:gdxuelregisterdone), libgdx),
         Cint,
         (Ptr{Cvoid},),
         gdx_ptr,
@@ -509,7 +509,7 @@ function gdx_data_read_raw_start(
     n_rec::Ref{Cint},
 )
     return ccall(
-        (@cpfx(:gdxdatareadrawstart), LIBGDX),
+        (@cpfx(:gdxdatareadrawstart), libgdx),
         Cint,
         (Ptr{Cvoid}, Cint, Ref{Cint}),
         gdx_ptr,
@@ -533,7 +533,7 @@ function gdx_data_read_raw(
     dim::Ref{Cint},
 )
     return ccall(
-        (@cpfx(:gdxdatareadraw), LIBGDX),
+        (@cpfx(:gdxdatareadraw), libgdx),
         Cint,
         (Ptr{Cvoid}, Ptr{Cint}, Ptr{Cdouble}, Ref{Cint}),
         gdx_ptr,
@@ -575,7 +575,7 @@ function gdx_data_read_str_start(
     n_err::Ref{Cint},
 )
     return ccall(
-        (@cpfx(:gdxdatareadstrstart), LIBGDX),
+        (@cpfx(:gdxdatareadstrstart), libgdx),
         Cint,
         (Ptr{Cvoid}, Cint, Ref{Cint}),
         gdx_ptr,
@@ -599,7 +599,7 @@ function gdx_data_read_str(
     dim_first::Ref{Cint},
 )
     return ccall(
-        (@cpfx(:gdxdatareadstr), LIBGDX),
+        (@cpfx(:gdxdatareadstr), libgdx),
         Cint,
         (Ptr{Cvoid}, Ptr{Ptr{UInt8}}, Ptr{Cdouble}, Ref{Cint}),
         gdx_ptr,
@@ -637,7 +637,7 @@ end
 
 function gdx_data_read_done(gdx_ptr::Ptr{Cvoid})
     return ccall(
-        (@cpfx(:gdxdatareaddone), LIBGDX),
+        (@cpfx(:gdxdatareaddone), libgdx),
         Cint,
         (Ptr{Cvoid},),
         gdx_ptr,
@@ -662,7 +662,7 @@ function gdx_data_write_str_start(
     user_info::Int,
 )
     return ccall(
-        (@cpfx(:gdxdatawritestrstart), LIBGDX),
+        (@cpfx(:gdxdatawritestrstart), libgdx),
         Cint,
         (Ptr{Cvoid}, Cstring, Cstring, Cint, Cint, Cint),
         gdx_ptr,
@@ -695,7 +695,7 @@ function gdx_data_write_str(
     vals::Vector{Float64},
 )
     return ccall(
-        (@cpfx(:gdxdatawritestr), LIBGDX),
+        (@cpfx(:gdxdatawritestr), libgdx),
         Cint,
         (Ptr{Cvoid}, Ptr{Cstring}, Ptr{Cdouble}),
         gdx_ptr,
@@ -718,7 +718,7 @@ end
 
 function gdx_data_write_done(gdx_ptr::Ptr{Cvoid})
     return ccall(
-        (@cpfx(:gdxdatawritedone), LIBGDX),
+        (@cpfx(:gdxdatawritedone), libgdx),
         Cint,
         (Ptr{Cvoid},),
         gdx_ptr,
