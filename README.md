@@ -1,9 +1,9 @@
 # GDXInterface.jl
 
-[![Build Status](https://github.com/jd-foster/GDXInterface.jl/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/jd-foster/GDXInterface.jl/actions?query=workflow%3ACI)
-[![codecov](https://codecov.io/gh/jd-foster/GDXInterface.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/jd-foster/GDXInterface.jl)
+[![Build Status](https://github.com/jump-dev/GDXInterface.jl/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/jump-dev/GDXInterface.jl/actions?query=workflow%3ACI)
+[![codecov](https://codecov.io/gh/jump-dev/GDXInterface.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/jump-dev/GDXInterface.jl)
 
-[GDXInterface.jl](https://github.com/jd-foster/GDXInterface.jl) is an unofficial
+[GDXInterface.jl](https://github.com/jump-dev/GDXInterface.jl) is an unofficial
 wrapper for [gams-dev/gdx](http://github.com/gams-dev/gdx), which provides
 support for reading and writing [GDX (GAMS Data Exchange) files](https://gams-dev.github.io/gdx/index.html).
 
@@ -20,11 +20,11 @@ product by [GAMS](https://gams.com).
 
 If you need help, please ask a question on the [JuMP community forum](https://jump.dev/forum).
 
-If you have a reproducible example of a bug, please [open a GitHub issue](https://github.com/jd-foster/GDXInterface.jl/issues/new).
+If you have a reproducible example of a bug, please [open a GitHub issue](https://github.com/jump-dev/GDXInterface.jl/issues/new).
 
 ## License
 
-`GDXInterface.jl` is licensed under the [MIT License](https://github.com/jd-foster/GDXInterface.jl/blob/main/LICENSE.md).
+`GDXInterface.jl` is licensed under the [MIT License](https://github.com/jump-dev/GDXInterface.jl/blob/main/LICENSE.md).
 
 `GDXInterface.jl` wraps the [official GAMS GDX project](https://github.com/GAMS-dev/gdx),
 which is also licensed under the [MIT License](https://github.com/GAMS-dev/gdx/blob/main/LICENSE).
@@ -36,7 +36,7 @@ Install `GDXInterface.jl` as follows:
 
 ```julia
 using Pkg
-Pkg.add(; url = "https://github.com/jd-foster/GDXInterface.jl.git")
+Pkg.add(; url = "https://github.com/jump-dev/GDXInterface.jl.git")
 ```
 
 You do not need a GAMS installation to use `GDXInterface.jl`.
