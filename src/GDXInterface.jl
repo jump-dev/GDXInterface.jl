@@ -11,7 +11,7 @@ import Tables
 
 using gdx_jll: libgdx
 
-include("gdx_c_api.jl")
+include("libgdx.jl")
 include("GDXFile.jl")
 
 # GDXInterface exports all symbols not starting with `_`. If you don't want all
