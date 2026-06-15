@@ -384,130 +384,177 @@ function read_gdx(
     only = nothing,
 )
     gdx = GDXHandle()
-    gdx_create(gdx)
     only_filter = only === nothing ? nothing : Set{Symbol}(_symkey.(only))
-    try
-        gdx_open_read(gdx, filepath)
-        gdxfile = GDXFile(filepath, Dict{Symbol,GDXSymbol}(), Symbol[])
-        n_syms, n_uels = gdx_system_info(gdx)
-        for sym_nr in 1:n_syms
-            sym_name, sym_dim, sym_type = gdx_symbol_info(gdx, sym_nr)
-            sym_key = _symkey(sym_name)
-            if only_filter !== nothing && !(sym_key in only_filter)
-                continue
-            end
-            sym_count, sym_user_info, sym_description =
-                gdx_symbol_info_x(gdx, sym_nr)
-            if sym_type == GMS_DT_SET
-                _insert!(
-                    gdxfile,
-                    sym_key,
-                    _read_set(
-                        gdx,
-                        sym_nr,
-                        sym_name,
-                        sym_dim,
-                        sym_description,
-                        sink,
-                    ),
-                )
-            elseif sym_type == GMS_DT_PAR
-                _insert!(
-                    gdxfile,
-                    sym_key,
-                    _read_parameter(
-                        gdx,
-                        sym_nr,
-                        sym_name,
-                        sym_dim,
-                        sym_description,
-                        parse_integers,
-                        sink,
-                    ),
-                )
-            elseif sym_type == GMS_DT_VAR
-                _insert!(
-                    gdxfile,
-                    sym_key,
-                    _read_variable(
-                        gdx,
-                        sym_nr,
-                        sym_name,
-                        sym_dim,
-                        sym_description,
-                        sym_user_info,
-                        parse_integers,
-                        sink,
-                    ),
-                )
-            elseif sym_type == GMS_DT_EQU
-                _insert!(
-                    gdxfile,
-                    sym_key,
-                    _read_equation(
-                        gdx,
-                        sym_nr,
-                        sym_name,
-                        sym_dim,
-                        sym_description,
-                        sym_user_info,
-                        parse_integers,
-                        sink,
-                    ),
-                )
-            elseif sym_type == GMS_DT_ALIAS
-                aliased_name =
-                    sym_user_info > 0 ? gdx_symbol_info(gdx, sym_user_info)[1] :
-                    "*"
-                _insert!(
-                    gdxfile,
-                    sym_key,
-                    GDXAlias(sym_name, sym_description, aliased_name),
-                )
-            end
-        end
-        gdx_close(gdx)
-        return gdxfile
-    finally
-        gdx_free(gdx)
+    pInt = Ref{Cint}(0)
+    rc = c__gdxopenread(gdx, filepath, pInt)
+    if pInt[] != 0 || rc != 1
+        throw(GDXException("Can't open file '$filepath'", pInt[]))
     end
+    gdxfile = GDXFile(filepath, Dict{Symbol,GDXSymbol}(), Symbol[])
+    p_n_syms, p_n_uels = Ref{Cint}(), Ref{Cint}()
+    if c__gdxsysteminfo(gdx, p_n_syms, p_n_uels) != 1
+        throw(GDXException("Can't read system info", 0))
+    end
+    n_syms, n_uels = p_n_syms[], p_n_uels[]
+    cbuf = fill(UInt8(' '), GMS_SSSIZE)
+    for sym_nr in 1:n_syms
+        p_dim, p_type = Ref{Cint}(0), Ref{Cint}(0)
+        if c__gdxsymbolinfo(gdx, sym_nr, cbuf, p_dim, p_type) != 1
+            throw(GDXException("Can't read symbol info", 0))
+        end
+        sym_dim, sym_type = p_dim[], p_type[]
+        sym_name = GC.@preserve cbuf unsafe_string(pointer(cbuf))
+        sym_key = _symkey(sym_name)
+        if only_filter !== nothing && !(sym_key in only_filter)
+            continue
+        end
+        cbuf[1] = UInt8('\0')
+        p_count, p_user_info = Ref{Cint}(0), Ref{Cint}(0)
+        if c__gdxsymbolinfox(gdx, sym_nr, p_count, p_user_info, cbuf) != 1
+            throw(GDXException("Can't read extended symbol info", 0))
+        end
+        sym_count, sym_user_info = p_count[], p_user_info[]
+        sym_description = GC.@preserve cbuf unsafe_string(pointer(cbuf))
+        if sym_type == GMS_DT_SET
+            _insert!(
+                gdxfile,
+                sym_key,
+                _read_set(
+                    gdx,
+                    sym_nr,
+                    sym_name,
+                    sym_dim,
+                    sym_description,
+                    sink,
+                ),
+            )
+        elseif sym_type == GMS_DT_PAR
+            _insert!(
+                gdxfile,
+                sym_key,
+                _read_parameter(
+                    gdx,
+                    sym_nr,
+                    sym_name,
+                    sym_dim,
+                    sym_description,
+                    parse_integers,
+                    sink,
+                ),
+            )
+        elseif sym_type == GMS_DT_VAR
+            _insert!(
+                gdxfile,
+                sym_key,
+                _read_variable(
+                    gdx,
+                    sym_nr,
+                    sym_name,
+                    sym_dim,
+                    sym_description,
+                    sym_user_info,
+                    parse_integers,
+                    sink,
+                ),
+            )
+        elseif sym_type == GMS_DT_EQU
+            _insert!(
+                gdxfile,
+                sym_key,
+                _read_equation(
+                    gdx,
+                    sym_nr,
+                    sym_name,
+                    sym_dim,
+                    sym_description,
+                    sym_user_info,
+                    parse_integers,
+                    sink,
+                ),
+            )
+        elseif sym_type == GMS_DT_ALIAS
+            aliased_name = "*"
+            if sym_user_info > 0
+                p_dim, p_type = Ref{Cint}(0), Ref{Cint}(0)
+                if c__gdxsymbolinfo(gdx, sym_user_info, cbuf, p_dim, p_type) !=
+                   1
+                    throw(GDXException("Can't read symbol info", 0))
+                end
+                sym_dim, sym_type = p_dim[], p_type[]
+                aliased_name = GC.@preserve cbuf unsafe_string(pointer(cbuf))
+            end
+            alias = GDXAlias(sym_name, sym_description, aliased_name)
+            _insert!(gdxfile, sym_key, alias)
+        end
+    end
+    c__gdxclose(gdx)
+    return gdxfile
+end
+
+function _gdx_symbol_get_domain_x(gdx::GDXHandle, sym_nr::Integer, dim::Integer)
+    cbufs = [fill(UInt8('\0'), GMS_SSSIZE) for _ in 1:dim]
+    _ = c__gdxsymbolgetdomainx(gdx, sym_nr, cbufs)
+    return GC.@preserve cbufs unsafe_string.(pointer.(cbufs))
+end
+
+function _gdx_data_read_str(
+    gdx::GDXHandle,
+    keystr::Vector{String},
+    vals::Vector{Float64},
+)
+    cbuf = [fill(UInt8('\0'), GMS_SSSIZE) for _ in 1:length(keystr)]
+    p_dim_first = Ref{Cint}(0)
+    if c__gdxdatareadstr(gdx, cbuf, vals, p_dim_first) != 1
+        throw(GDXException("Failed to read GDX record", 0))
+    end
+    GC.@preserve cbuf begin
+        keystr .= unsafe_string.(pointer.(cbuf))
+    end
+    return
 end
 
 function _read_set(
     gdx::GDXHandle,
-    sym_nr::Int,
+    sym_nr,
     name::String,
-    dim::Int,
+    dim,
     description::String,
     sink,
 )
-    domains = dim > 0 ? gdx_symbol_get_domain_x(gdx, sym_nr, dim) : String[]
-    n_recs = gdx_data_read_str_start(gdx, sym_nr)
+    domains = dim > 0 ? _gdx_symbol_get_domain_x(gdx, sym_nr, dim) : String[]
+    p_n_recs = Ref{Cint}()
+    if c__gdxdatareadstrstart(gdx, sym_nr, p_n_recs) != 1
+        throw(GDXException("Can't start GDX read", 0))
+    end
+    n_recs = p_n_recs[]
     keys = Vector{String}(undef, max(dim, 1))
     vals = Vector{Float64}(undef, GMS_VAL_MAX)
     columns = [Vector{String}(undef, n_recs) for _ in 1:dim]
     text_nrs = Vector{Int}(undef, n_recs)
     for i in 1:n_recs
-        gdx_data_read_str(gdx, keys, vals)
+        _gdx_data_read_str(gdx, keys, vals)
         for d in 1:dim
             columns[d][i] = keys[d]
         end
         text_nrs[i] = Int(vals[GAMS_VALUE_LEVEL])
     end
-    gdx_data_read_done(gdx)
+    c__gdxdatareaddone(gdx)
     col_names = Symbol[
         Symbol(domain == "*" ? "dim$d" : domain) for
         (d, domain) in enumerate(domains)
     ]
-    has_text = any(>(0), text_nrs)
-    if has_text
-        element_text = Vector{String}(undef, n_recs)
+    if any(>(0), text_nrs)
+        cbuf = fill(UInt8(' '), GMS_SSSIZE)
+        element_text = String["" for _ in 1:n_recs]
         for i in 1:n_recs
             if text_nrs[i] > 0
-                found, text = gdx_get_elem_text(gdx, text_nrs[i])
-                element_text[i] = found ? text : ""
-            else
-                element_text[i] = ""
+                cbuf[1] = UInt8('\0')
+                p_node = Ref{Cint}(0)
+                if c__gdxgetelemtext(gdx, text_nrs[i], cbuf, p_node) == 1
+                    GC.@preserve cbuf begin
+                        element_text[i] = unsafe_string(pointer(cbuf))
+                    end
+                end
             end
         end
         nt = NamedTuple{(col_names..., :element_text)}((
@@ -522,27 +569,31 @@ end
 
 function _read_parameter(
     gdx::GDXHandle,
-    sym_nr::Int,
+    sym_nr::Integer,
     name::String,
-    dim::Int,
+    dim::Integer,
     description::String,
     parse_integers::Bool,
     sink,
 )
-    domains = dim > 0 ? gdx_symbol_get_domain_x(gdx, sym_nr, dim) : String[]
-    n_recs = gdx_data_read_str_start(gdx, sym_nr)
+    domains = dim > 0 ? _gdx_symbol_get_domain_x(gdx, sym_nr, dim) : String[]
+    p_n_recs = Ref{Cint}()
+    if c__gdxdatareadstrstart(gdx, sym_nr, p_n_recs) != 1
+        throw(GDXException("Can't start GDX read", 0))
+    end
+    n_recs = p_n_recs[]
     keys = Vector{String}(undef, max(dim, 1))
     vals = Vector{Float64}(undef, GMS_VAL_MAX)
     columns = [Vector{String}(undef, n_recs) for _ in 1:dim]
     values = Vector{Float64}(undef, n_recs)
     for i in 1:n_recs
-        gdx_data_read_str(gdx, keys, vals)
+        _gdx_data_read_str(gdx, keys, vals)
         for d in 1:dim
             columns[d][i] = keys[d]
         end
         values[i] = parse_gdx_value(vals[GAMS_VALUE_LEVEL])
     end
-    gdx_data_read_done(gdx)
+    c__gdxdatareaddone(gdx)
     col_names = Symbol[
         Symbol(domain == "*" ? "dim$d" : domain) for
         (d, domain) in enumerate(domains)
@@ -554,16 +605,20 @@ end
 
 function _read_variable(
     gdx::GDXHandle,
-    sym_nr::Int,
+    sym_nr::Integer,
     name::String,
-    dim::Int,
+    dim::Integer,
     description::String,
-    user_info::Int,
+    user_info::Integer,
     parse_integers::Bool,
     sink,
 )
-    domains = dim > 0 ? gdx_symbol_get_domain_x(gdx, sym_nr, dim) : String[]
-    n_recs = gdx_data_read_str_start(gdx, sym_nr)
+    domains = dim > 0 ? _gdx_symbol_get_domain_x(gdx, sym_nr, dim) : String[]
+    p_n_recs = Ref{Cint}()
+    if c__gdxdatareadstrstart(gdx, sym_nr, p_n_recs) != 1
+        throw(GDXException("Can't start GDX read", 0))
+    end
+    n_recs = p_n_recs[]
     keys = Vector{String}(undef, max(dim, 1))
     vals = Vector{Float64}(undef, GMS_VAL_MAX)
     columns = [Vector{String}(undef, n_recs) for _ in 1:dim]
@@ -573,7 +628,7 @@ function _read_variable(
     upper = Vector{Float64}(undef, n_recs)
     scale = Vector{Float64}(undef, n_recs)
     for i in 1:n_recs
-        gdx_data_read_str(gdx, keys, vals)
+        _gdx_data_read_str(gdx, keys, vals)
         for d in 1:dim
             columns[d][i] = keys[d]
         end
@@ -583,7 +638,7 @@ function _read_variable(
         upper[i] = parse_gdx_value(vals[GAMS_VALUE_UPPER])
         scale[i] = parse_gdx_value(vals[GAMS_VALUE_SCALE])
     end
-    gdx_data_read_done(gdx)
+    c__gdxdatareaddone(gdx)
     col_names = Symbol[
         Symbol(domain == "*" ? "dim$d" : domain) for
         (d, domain) in enumerate(domains)
@@ -608,16 +663,20 @@ end
 
 function _read_equation(
     gdx::GDXHandle,
-    sym_nr::Int,
+    sym_nr::Integer,
     name::String,
-    dim::Int,
+    dim::Integer,
     description::String,
-    user_info::Int,
+    user_info::Integer,
     parse_integers::Bool,
     sink,
 )
-    domains = dim > 0 ? gdx_symbol_get_domain_x(gdx, sym_nr, dim) : String[]
-    n_recs = gdx_data_read_str_start(gdx, sym_nr)
+    domains = dim > 0 ? _gdx_symbol_get_domain_x(gdx, sym_nr, dim) : String[]
+    p_n_recs = Ref{Cint}()
+    if c__gdxdatareadstrstart(gdx, sym_nr, p_n_recs) != 1
+        throw(GDXException("Can't start GDX read", 0))
+    end
+    n_recs = p_n_recs[]
     keys = Vector{String}(undef, max(dim, 1))
     vals = Vector{Float64}(undef, GMS_VAL_MAX)
     columns = [Vector{String}(undef, n_recs) for _ in 1:dim]
@@ -627,7 +686,7 @@ function _read_equation(
     upper = Vector{Float64}(undef, n_recs)
     scale = Vector{Float64}(undef, n_recs)
     for i in 1:n_recs
-        gdx_data_read_str(gdx, keys, vals)
+        _gdx_data_read_str(gdx, keys, vals)
         for d in 1:dim
             columns[d][i] = keys[d]
         end
@@ -637,7 +696,7 @@ function _read_equation(
         upper[i] = parse_gdx_value(vals[GAMS_VALUE_UPPER])
         scale[i] = parse_gdx_value(vals[GAMS_VALUE_SCALE])
     end
-    gdx_data_read_done(gdx)
+    c__gdxdatareaddone(gdx)
     col_names = Symbol[
         Symbol(domain == "*" ? "dim$d" : domain) for
         (d, domain) in enumerate(domains)
@@ -682,27 +741,33 @@ function write_gdx(
     producer::String = "GDXInterface.jl",
 )
     gdx = GDXHandle()
-    gdx_create(gdx)
-    try
-        gdx_open_write(gdx, filepath, producer)
-        for k in gdxfile._order
-            sym = gdxfile._symbols[k]
-            if sym isa GDXAlias
-                continue
-            end
-            _write_symbol(gdx, sym)
-        end
-        for k in gdxfile._order
-            sym = gdxfile._symbols[k]
-            if !(sym isa GDXAlias)
-                continue
-            end
-            gdx_add_alias(gdx, sym.alias_for, sym.name)
-        end
-        gdx_close(gdx)
-    finally
-        gdx_free(gdx)
+    pInt = Ref{Cint}(0)
+    rc = c__gdxopenwrite(gdx, filepath, producer, pInt)
+    if pInt[] != 0 || rc != 1
+        throw(GDXException("Can't open file '$filepath' for writing", pInt[]))
     end
+    for k in gdxfile._order
+        sym = gdxfile._symbols[k]
+        if sym isa GDXAlias
+            continue
+        end
+        _write_symbol(gdx, sym)
+    end
+    for k in gdxfile._order
+        sym = gdxfile._symbols[k]
+        if !(sym isa GDXAlias)
+            continue
+        end
+        if c__gdxaddalias(gdx, sym.alias_for, sym.name) != 1
+            throw(
+                GDXException(
+                    "Can't add alias '$(sym.name)' for '$(sym.alias_for)'",
+                    0,
+                ),
+            )
+        end
+    end
+    c__gdxclose(gdx)
     return filepath
 end
 
@@ -730,16 +795,15 @@ function write_gdx(
     producer::String = "GDXInterface.jl",
 )
     gdx = GDXHandle()
-    gdx_create(gdx)
-    try
-        gdx_open_write(gdx, filepath, producer)
-        for (name, tbl) in symbols
-            _write_parameter_table(gdx, name, tbl, _table_description(tbl))
-        end
-        gdx_close(gdx)
-    finally
-        gdx_free(gdx)
+    pInt = Ref{Cint}(0)
+    rc = c__gdxopenwrite(gdx, filepath, producer, pInt)
+    if pInt[] != 0 || rc != 1
+        throw(GDXException("Can't open file '$filepath' for writing", pInt[]))
     end
+    for (name, tbl) in symbols
+        _write_parameter_table(gdx, name, tbl, _table_description(tbl))
+    end
+    c__gdxclose(gdx)
     return filepath
 end
 
@@ -747,13 +811,15 @@ function _set_domain_x(
     gdx::GDXHandle,
     name::String,
     domain::Vector{String},
-    dim::Int,
+    dim::Integer,
 )
-    if !(length(domain) == dim && dim > 0)
-        return
+    if length(domain) == dim && dim > 0
+        p_sym_nr = Ref{Cint}(0)
+        if c__gdxfindsymbol(gdx, name, p_sym_nr) == 1
+            c__gdxsymbolsetdomainx(gdx, p_sym_nr[], domain)
+        end
     end
-    found, sym_nr = gdx_find_symbol(gdx, name)
-    return found && gdx_symbol_set_domain_x(gdx, sym_nr, domain)
+    return
 end
 
 function _table_description(tbl)
@@ -772,6 +838,20 @@ _write_symbol(gdx::GDXHandle, sym::GDXVariable) = _write_variable(gdx, sym)
 
 _write_symbol(gdx::GDXHandle, sym::GDXEquation) = _write_equation(gdx, sym)
 
+function gdx_data_write_str_start(
+    gdx::GDXHandle,
+    name::String,
+    text::String,
+    dim::Integer,
+    typ::Integer,
+    user_info::Int = 0,
+)
+    if c__gdxdatawritestrstart(gdx, name, text, dim, typ, user_info) != 1
+        throw(GDXException("Can't start writing symbol '$name'", 0))
+    end
+    return
+end
+
 function _write_set(gdx::GDXHandle, sym::GDXSet)
     tbl = Tables.columns(sym.records)
     col_names = collect(Tables.columnnames(tbl))
@@ -789,12 +869,23 @@ function _write_set(gdx::GDXHandle, sym::GDXSet)
         end
         if has_text
             text = string(Tables.getcolumn(tbl, :element_text)[i])
-            vals[GAMS_VALUE_LEVEL] =
-                isempty(text) ? 0.0 : Float64(gdx_add_set_text(gdx, text))
+            if isempty(text)
+                vals[GAMS_VALUE_LEVEL] = 0.0
+            else
+                p_text_nr = Ref{Cint}(0)
+                if c__gdxaddsettext(gdx, text, p_text_nr) != 1
+                    throw(GDXException("Can't register set element text", 0))
+                end
+                vals[GAMS_VALUE_LEVEL] = Float64(p_text_nr[])
+            end
         end
-        gdx_data_write_str(gdx, keys, vals)
+        if c__gdxdatawritestr(gdx, keys, vals) != 1
+            throw(GDXException("Can't write record", 0))
+        end
     end
-    gdx_data_write_done(gdx)
+    if c__gdxdatawritedone(gdx) != 1
+        throw(GDXException("Can't finish writing symbol", 0))
+    end
     return _set_domain_x(gdx, sym.name, sym.domain, dim)
 end
 
@@ -828,9 +919,13 @@ function _write_parameter_table(
             keys[j] = string(Tables.getcolumn(cols, col)[i])
         end
         vals[GAMS_VALUE_LEVEL] = _to_gdx_value(value_col[i])
-        gdx_data_write_str(gdx, keys, vals)
+        if c__gdxdatawritestr(gdx, keys, vals) != 1
+            throw(GDXException("Can't write record", 0))
+        end
     end
-    gdx_data_write_done(gdx)
+    if c__gdxdatawritedone(gdx) != 1
+        throw(GDXException("Can't finish writing symbol", 0))
+    end
     return _set_domain_x(gdx, name, domain, dim)
 end
 
@@ -865,9 +960,13 @@ function _write_variable(gdx::GDXHandle, sym::GDXVariable)
         vals[GAMS_VALUE_LOWER] = _to_gdx_value(lower_col[i])
         vals[GAMS_VALUE_UPPER] = _to_gdx_value(upper_col[i])
         vals[GAMS_VALUE_SCALE] = _to_gdx_value(scale_col[i])
-        gdx_data_write_str(gdx, keys, vals)
+        if c__gdxdatawritestr(gdx, keys, vals) != 1
+            throw(GDXException("Can't write record", 0))
+        end
     end
-    gdx_data_write_done(gdx)
+    if c__gdxdatawritedone(gdx) != 1
+        throw(GDXException("Can't finish writing symbol", 0))
+    end
     return _set_domain_x(gdx, sym.name, sym.domain, dim)
 end
 
@@ -900,9 +999,13 @@ function _write_equation(gdx::GDXHandle, sym::GDXEquation)
         vals[GAMS_VALUE_LOWER] = _to_gdx_value(lower_col[i])
         vals[GAMS_VALUE_UPPER] = _to_gdx_value(upper_col[i])
         vals[GAMS_VALUE_SCALE] = _to_gdx_value(scale_col[i])
-        gdx_data_write_str(gdx, keys, vals)
+        if c__gdxdatawritestr(gdx, keys, vals) != 1
+            throw(GDXException("Can't write record", 0))
+        end
     end
-    gdx_data_write_done(gdx)
+    if c__gdxdatawritedone(gdx) != 1
+        throw(GDXException("Can't finish writing symbol", 0))
+    end
     return _set_domain_x(gdx, sym.name, sym.domain, dim)
 end
 
@@ -931,3 +1034,16 @@ function _to_gdx_value(val::Float64)
 end
 
 _to_gdx_value(val::Real) = _to_gdx_value(Float64(val))
+
+function parse_gdx_value(val::Float64)
+    if val == GAMS_SV_UNDEF || val == GAMS_SV_NA
+        return NaN
+    elseif val == GAMS_SV_PINF
+        return Inf
+    elseif val == GAMS_SV_MINF
+        return -Inf
+    elseif val == GAMS_SV_EPS
+        return -0.0
+    end
+    return val
+end
