@@ -8,31 +8,22 @@ module GDXInterface
 
 import DataAPI
 import Tables
-import gdx_jll
-const LIBGDX = gdx_jll.libgdx
+
+using gdx_jll: libgdx
 
 include("gdx_c_api.jl")
 include("GDXFile.jl")
 
-# GDX file access exports
-export GDXFile,
-    GDXSymbol, GDXSet, GDXParameter, GDXVariable, GDXEquation, GDXAlias
-export GDXException
-export VariableType,
-    VarUnknown,
-    VarBinary,
-    VarInteger,
-    VarPositive,
-    VarNegative,
-    VarFree,
-    VarSOS1,
-    VarSOS2,
-    VarSemiCont,
-    VarSemiInt
-export EquationType, EqE, EqG, EqL, EqN, EqX, EqC, EqB
-export read_gdx, write_gdx
-export list_sets,
-    list_aliases, list_parameters, list_variables, list_equations, list_symbols
-export get_symbol
+# GDXInterface exports all symbols not starting with `_`. If you don't want all
+# of these symbols in your environment, then use `import GDXInterface` instead
+# of `using GDXInterface`.
+
+const _EXCLUDE_SYMBOLS = [Symbol(@__MODULE__), :eval, :include]
+_is_sym(sym) = !startswith("$sym", "_") && Base.isidentifier(sym)
+for sym in filter(_is_sym, names(@__MODULE__; all = true))
+    if !(sym in _EXCLUDE_SYMBOLS)
+        @eval export $sym
+    end
+end
 
 end # module GDXInterface
