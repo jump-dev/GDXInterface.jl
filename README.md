@@ -4,17 +4,17 @@
 [![codecov](https://codecov.io/gh/jump-dev/GDXInterface.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/jump-dev/GDXInterface.jl)
 
 [GDXInterface.jl](https://github.com/jump-dev/GDXInterface.jl) is an unofficial
-wrapper for [gams-dev/gdx](http://github.com/gams-dev/gdx), which provides
-support for reading and writing [GDX (GAMS Data Exchange) files](https://gams-dev.github.io/gdx/index.html).
+Julia wrapper for [gams-dev/gdx](https://github.com/gams-dev/gdx) that reads and
+writes [GDX (GAMS Data Exchange) files](https://gams-dev.github.io/gdx/index.html).
 
 For more information on the GDX file format, see the blog post
 [GDX source code published on GitHub](https://www.gams.com/blog/2023/12/gdx-source-code-published-on-github/).
 
 ## Affiliation
 
-This package is an unofficial Julia wrapper of [gams-dev/gdx](https://github.com/gams-dev/gdx).
+This package is an unofficial Julia wrapper for [gams-dev/gdx](https://github.com/gams-dev/gdx).
 It is developed and maintained by the JuMP community. It is not an official
-product by [GAMS](https://gams.com).
+product of [GAMS](https://www.gams.com).
 
 ## Getting help
 
@@ -36,12 +36,12 @@ Install `GDXInterface.jl` as follows:
 
 ```julia
 using Pkg
-Pkg.add(; url = "https://github.com/jump-dev/GDXInterface.jl.git")
+Pkg.add("GDXInterface")
 ```
 
 You do not need a GAMS installation to use `GDXInterface.jl`.
 
-## Quick Start
+## Quick start
 
 ### Reading GDX files
 
@@ -67,7 +67,7 @@ sym.description  # explanatory text from GAMS
 sym.domain       # ["j"]
 sym.records      # the records table
 
-# Pass DataFrame as a sink to materialize DataFrames while reading
+# Pass DataFrame as the sink to materialize DataFrames while reading
 using DataFrames
 gdx = read_gdx("transport.gdx", DataFrame)
 ```
@@ -92,10 +92,10 @@ write_gdx("copy.gdx", gdx)
 For large GDX files, load only the symbols you need:
 
 ```julia
-gdx = read_gdx("big_model.gdx", only=[:x, :demand])
+gdx = read_gdx("big_model.gdx"; only = [:x, :demand])
 ```
 
-## API Reference
+## API reference
 
 ### Types
 
@@ -110,7 +110,7 @@ gdx = read_gdx("big_model.gdx", only=[:x, :demand])
 ### Reading
 
 ```julia
-read_gdx(filepath[, sink]; parse_integers=true, only=nothing) -> GDXFile
+read_gdx(filepath[, sink]; parse_integers = true, only = nothing) -> GDXFile
 ```
 
 - `sink`: callable that materializes a column table, defaulting to `Tables.columntable`
@@ -145,7 +145,7 @@ length(gdx)              # number of symbols
 for (k, v) in gdx ...    # iterate over symbols
 ```
 
-## Special Values
+## Special values
 
 GAMS special values are mapped to Julia equivalents when reading:
 
